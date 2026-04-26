@@ -107,7 +107,40 @@ curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts
 - `GET /state`
 - `POST /state/enabled`
 - `POST /state/profile`
+- `POST /state/rules`
 - `GET /logs`
+
+### Per-route chaos rules
+
+You can define profile rules that match a request URL. If a rule matches, that profile is used; if not,
+the global active profile is used.
+
+Example:
+
+```json
+{
+  "rules": [
+    {
+      "match": "jsonplaceholder.typicode.com/posts",
+      "profile": "slow-3g"
+    },
+    {
+      "match": "/payments",
+      "profile": "unstable-api"
+    }
+  ]
+}
+```
+
+Update rules at runtime:
+
+```bash
+curl -X POST http://localhost:8081/state/rules \
+  -H "content-type: application/json" \
+  -d '{"rules":[{"match":"jsonplaceholder.typicode.com/posts","profile":"slow-3g"},{"match":"/payments","profile":"unstable-api"}]}'
+```
+
+Matching mode is simple string matching (no regex): domain, path, or substring in full URL.
 
 ## Environment variables
 
