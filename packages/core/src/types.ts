@@ -12,3 +12,8 @@ export type ChaosDecision = {
   timeoutApplied: boolean;
   timeoutMs: number;
 };
+
+export type ChaosProfileRule = {
+  match: string;
+  profile: string;
+};
