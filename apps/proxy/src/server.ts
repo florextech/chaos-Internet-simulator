@@ -8,6 +8,7 @@ const { proxyServer, controlServer } = createProxySystem({
   initialEnabled: resolvedConfig.enabled,
   initialProfileId: resolvedConfig.activeProfile,
   profileRules: resolvedConfig.rules,
+  customProfiles: resolvedConfig.customProfiles,
 });
 
 const start = async (): Promise<void> => {

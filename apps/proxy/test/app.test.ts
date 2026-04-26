@@ -37,7 +37,18 @@ describe('proxy app', () => {
   let app: ReturnType<typeof createProxySystem>;
 
   beforeEach(async () => {
-    app = createProxySystem({ fetchImpl: fetchMock, randomProvider });
+    app = createProxySystem({
+      fetchImpl: fetchMock,
+      randomProvider,
+      customProfiles: {
+        'my-bad-network': {
+          delayMs: 3500,
+          errorRatePercent: 10,
+          timeoutRatePercent: 5,
+          timeoutMs: 12000,
+        },
+      },
+    });
     fetchMock.mockReset();
     randomProvider.mockReset();
     app.chaosState.enabled = false;
@@ -97,13 +108,19 @@ describe('proxy app', () => {
       url: '/state/profile',
       payload: { profileId: 'unstable-api' },
     });
+    const customProfile = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/profile',
+      payload: { profileId: 'my-bad-network' },
+    });
 
     expect(missingProfile.statusCode).toBe(400);
     expect(badEnabled.statusCode).toBe(400);
     expect(enabled.statusCode).toBe(200);
     expect(badProfile.statusCode).toBe(404);
     expect(profile.statusCode).toBe(200);
-    expect(app.chaosState.profileId).toBe('unstable-api');
+    expect(customProfile.statusCode).toBe(200);
+    expect(app.chaosState.profileId).toBe('my-bad-network');
   });
 
   it('forwards request to target base url and logs it', async () => {

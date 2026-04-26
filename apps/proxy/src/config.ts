@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { ChaosProfileRule } from '@chaos-internet-simulator/core';
+import type { ChaosRules } from '@chaos-internet-simulator/core';
 
 type ChaosConfigFile = {
   enabled?: boolean;
@@ -10,6 +11,7 @@ type ChaosConfigFile = {
   proxyPort?: number;
   controlApiPort?: number;
   rules?: ChaosProfileRule[];
+  customProfiles?: Record<string, ChaosRules>;
 };
 
 export type ResolvedProxyConfig = {
@@ -19,6 +21,7 @@ export type ResolvedProxyConfig = {
   proxyPort: number;
   controlApiPort: number;
   rules: ChaosProfileRule[];
+  customProfiles: Record<string, ChaosRules>;
 };
 
 const CONFIG_FILE_NAME = 'chaos.config.json';
@@ -75,5 +78,6 @@ export const resolveProxyConfig = (cwd: string = process.cwd()): ResolvedProxyCo
     proxyPort: envNumber('PROXY_PORT') ?? fileConfig.proxyPort ?? 8080,
     controlApiPort: envNumber('CONTROL_PORT') ?? fileConfig.controlApiPort ?? 8081,
     rules: fileConfig.rules ?? [],
+    customProfiles: fileConfig.customProfiles ?? {},
   };
 };

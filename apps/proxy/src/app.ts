@@ -30,6 +30,7 @@ export type ProxySystemOptions = {
   profileRules?: ChaosProfileRule[];
   initialEnabled?: boolean;
   initialProfileId?: string;
+  customProfiles?: Record<string, ChaosRules>;
 };
 
 type ChaosState = {
@@ -37,6 +38,7 @@ type ChaosState = {
   profileId: string;
   rules: ChaosRules;
   profileRules: ChaosProfileRule[];
+  customProfiles: Record<string, ChaosRules>;
 };
 
 const createNoChaosDecision = () => ({
@@ -63,15 +65,23 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   const targetBaseUrl = options.targetBaseUrl ?? 'https://jsonplaceholder.typicode.com';
   const fetchImpl = options.fetchImpl ?? fetch;
   const randomProvider = options.randomProvider ?? Math.random;
+  const customProfiles = options.customProfiles ?? {};
 
   const activePreset = PRESETS[0];
+  const resolveProfileRules = (profileId: string): ChaosRules | undefined =>
+    getPresetById(profileId)?.rules ?? customProfiles[profileId];
+
   const initialProfileId = options.initialProfileId ?? activePreset.id;
-  const initialPreset = getPresetById(initialProfileId) ?? activePreset;
+  const initialRules = resolveProfileRules(initialProfileId) ?? activePreset.rules;
+  const effectiveInitialProfileId = resolveProfileRules(initialProfileId)
+    ? initialProfileId
+    : activePreset.id;
   const chaosState: ChaosState = {
     enabled: options.initialEnabled ?? false,
-    profileId: initialPreset.id,
-    rules: initialPreset.rules,
+    profileId: effectiveInitialProfileId,
+    rules: initialRules,
     profileRules: options.profileRules ?? [],
+    customProfiles,
   };
   const requestLogs: ProxyLogEntry[] = [];
 
@@ -92,8 +102,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     const targetUrl = resolveTargetUrl(requestUrl, targetBaseUrl);
     const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
     const activeProfileId = matchedRule?.profile ?? chaosState.profileId;
-    const activePreset = getPresetById(activeProfileId);
-    const activeRules = activePreset?.rules ?? chaosState.rules;
+    const activeRules = resolveProfileRules(activeProfileId) ?? chaosState.rules;
     const decision = chaosState.enabled
       ? decideChaos(activeRules, randomProvider)
       : createNoChaosDecision();
@@ -174,8 +183,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     const targetUrl = `https://${url}`;
     const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
     const activeProfileId = matchedRule?.profile ?? chaosState.profileId;
-    const activePreset = getPresetById(activeProfileId);
-    const activeRules = activePreset?.rules ?? chaosState.rules;
+    const activeRules = resolveProfileRules(activeProfileId) ?? chaosState.rules;
     const decision = chaosState.enabled
       ? decideChaos(activeRules, randomProvider)
       : createNoChaosDecision();
@@ -274,13 +282,13 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       return reply.code(400).send({ error: 'profileId is required' });
     }
 
-    const preset = getPresetById(profileId);
-    if (!preset) {
+    const selectedRules = resolveProfileRules(profileId);
+    if (!selectedRules) {
       return reply.code(404).send({ error: `profile not found: ${profileId}` });
     }
 
-    chaosState.profileId = preset.id;
-    chaosState.rules = preset.rules;
+    chaosState.profileId = profileId;
+    chaosState.rules = selectedRules;
     return { ok: true, state: chaosState };
   });
 
