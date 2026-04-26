@@ -75,8 +75,26 @@ const setEnabled = async (enabled: boolean): Promise<void> => {
   );
 };
 
+const switchProfile = async (profileId: string | undefined): Promise<void> => {
+  if (!profileId) {
+    throw new Error('Missing profile name. Usage: chaos-net profile <profileName>');
+  }
+
+  const result = await requestJson<{ ok: boolean; state: ChaosState }>('/state/profile', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ profileId }),
+  });
+
+  if (!result.ok) {
+    throw new Error(`Failed to set profile "${profileId}".`);
+  }
+
+  console.log(`Profile changed to "${result.state.profileId}".`);
+};
+
 const main = async (): Promise<void> => {
-  const [command] = process.argv.slice(2);
+  const [command, argument] = process.argv.slice(2);
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printHelp();
@@ -94,6 +112,10 @@ const main = async (): Promise<void> => {
     }
     if (command === 'off') {
       await setEnabled(false);
+      return;
+    }
+    if (command === 'profile') {
+      await switchProfile(argument);
       return;
     }
 
