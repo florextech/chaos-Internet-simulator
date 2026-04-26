@@ -14,6 +14,24 @@ const chaosState = {
   profileId: activePreset.id,
   rules: activePreset.rules,
 };
+const requestLogs: Array<{
+  method: string;
+  url: string;
+  profile: string;
+  chaosEnabled: boolean;
+  delayApplied: boolean;
+  errorApplied: boolean;
+  timeoutApplied: boolean;
+  statusCode: number;
+  timestamp: string;
+}> = [];
+
+const pushLog = (entry: (typeof requestLogs)[number]): void => {
+  requestLogs.unshift(entry);
+  if (requestLogs.length > 200) {
+    requestLogs.pop();
+  }
+};
 
 const sleep = async (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -33,6 +51,7 @@ const controlServer = Fastify({ logger: true });
 proxyServer.get('/health', async () => ({ status: 'ok', service: 'proxy' }));
 
 proxyServer.all('/*', async (request, reply) => {
+  const requestUrl = request.raw.url ?? '/';
   const decision = chaosState.enabled
     ? decideChaos(chaosState.rules)
     : {
@@ -49,14 +68,38 @@ proxyServer.all('/*', async (request, reply) => {
 
   if (decision.timeoutApplied) {
     await sleep(decision.timeoutMs);
-    return reply.code(504).send({ error: 'Simulated timeout' });
+    const statusCode = 504;
+    pushLog({
+      method: request.method,
+      url: requestUrl,
+      profile: chaosState.profileId,
+      chaosEnabled: chaosState.enabled,
+      delayApplied: decision.delayApplied,
+      errorApplied: false,
+      timeoutApplied: true,
+      statusCode,
+      timestamp: new Date().toISOString(),
+    });
+    return reply.code(statusCode).send({ error: 'Simulated timeout' });
   }
 
   if (decision.errorApplied) {
-    return reply.code(502).send({ error: 'Simulated upstream error' });
+    const statusCode = 502;
+    pushLog({
+      method: request.method,
+      url: requestUrl,
+      profile: chaosState.profileId,
+      chaosEnabled: chaosState.enabled,
+      delayApplied: decision.delayApplied,
+      errorApplied: true,
+      timeoutApplied: false,
+      statusCode,
+      timestamp: new Date().toISOString(),
+    });
+    return reply.code(statusCode).send({ error: 'Simulated upstream error' });
   }
 
-  const targetUrl = resolveTargetUrl(request.raw.url ?? '/');
+  const targetUrl = resolveTargetUrl(requestUrl);
   const response = await fetch(targetUrl, {
     method: request.method,
     headers: request.headers as HeadersInit,
@@ -70,6 +113,17 @@ proxyServer.all('/*', async (request, reply) => {
   reply.code(response.status);
   response.headers.forEach((value, key) => {
     reply.header(key, value);
+  });
+  pushLog({
+    method: request.method,
+    url: requestUrl,
+    profile: chaosState.profileId,
+    chaosEnabled: chaosState.enabled,
+    delayApplied: decision.delayApplied,
+    errorApplied: false,
+    timeoutApplied: false,
+    statusCode: response.status,
+    timestamp: new Date().toISOString(),
   });
   return reply.send(Buffer.from(body));
 });
@@ -103,6 +157,8 @@ controlServer.post<{ Body: { profileId?: string } }>('/state/profile', async (re
   chaosState.rules = preset.rules;
   return { ok: true, state: chaosState };
 });
+
+controlServer.get('/logs', async () => requestLogs);
 
 const start = async (): Promise<void> => {
   await Promise.all([
