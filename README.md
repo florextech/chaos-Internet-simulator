@@ -89,6 +89,8 @@ pnpm --filter @chaos-internet-simulator/cli exec chaos-net start
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net off
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net profile unstable-api
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net logs
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario bad-mobile-network
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario off
 ```
 
 Optional CLI env var:
@@ -109,6 +111,10 @@ curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts
 - `POST /state/profile`
 - `POST /state/rules`
 - `GET /logs`
+- `GET /scenario`
+- `GET /scenarios`
+- `POST /scenario`
+- `POST /scenario/off`
 
 ### Per-route chaos rules
 
@@ -141,6 +147,36 @@ curl -X POST http://localhost:8081/state/rules \
 ```
 
 Matching mode is simple string matching (no regex): domain, path, or substring in full URL.
+
+### Network scenarios
+
+Scenarios execute profile steps over time.
+
+Available presets:
+
+- `bad-mobile-network` (loop)
+- `api-degrading` (non-loop)
+
+Start scenario:
+
+```bash
+curl -X POST http://localhost:8081/scenario \
+  -H "content-type: application/json" \
+  -d '{"name":"bad-mobile-network"}'
+```
+
+Stop scenario:
+
+```bash
+curl -X POST http://localhost:8081/scenario/off
+```
+
+CLI:
+
+```bash
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario bad-mobile-network
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario off
+```
 
 ## Environment variables
 
