@@ -128,11 +128,20 @@ curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts
 - `POST /state/enabled`
 - `POST /state/profile`
 - `POST /state/rules`
+- `POST /state/target-base-url`
 - `GET /logs`
+- `GET /profiles`
+- `POST /profiles/custom`
 - `GET /scenario`
 - `GET /scenarios`
 - `POST /scenario`
 - `POST /scenario/off`
+
+The dashboard can now configure:
+
+- active target base URL
+- per-route rules (domain/path/URL contains)
+- custom profiles (create/update) without restarting proxy
 
 ### Per-route chaos rules
 
