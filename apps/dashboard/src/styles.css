@@ -41,6 +41,11 @@ p {
   gap: 12px;
 }
 
+h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
 .row {
   display: flex;
   justify-content: space-between;
@@ -63,6 +68,35 @@ select {
   gap: 8px;
   color: #4b5563;
   font-size: 14px;
+}
+
+.logs {
+  margin-top: 24px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  padding: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  white-space: nowrap;
+}
+
+thead th {
+  background: #f9fafb;
+  font-weight: 600;
 }
 
 .ok {

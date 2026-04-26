@@ -13,6 +13,18 @@ type ChaosState = {
   };
 };
 
+type RequestLog = {
+  method: string;
+  url: string;
+  profile: string;
+  chaosEnabled: boolean;
+  delayApplied: boolean;
+  errorApplied: boolean;
+  timeoutApplied: boolean;
+  statusCode: number;
+  timestamp: string;
+};
+
 const profiles = [
   { id: 'slow-3g', label: 'Slow 3G' },
   { id: 'airport-wifi', label: 'Airport WiFi' },
@@ -23,6 +35,7 @@ const profiles = [
 export const App = () => {
   const [healthy, setHealthy] = useState<boolean>(false);
   const [state, setState] = useState<ChaosState | null>(null);
+  const [logs, setLogs] = useState<RequestLog[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadState = async () => {
@@ -31,17 +44,29 @@ export const App = () => {
     setState(data);
   };
 
+  const loadLogs = async () => {
+    const response = await fetch(`${CONTROL_API}/logs`);
+    const data = (await response.json()) as RequestLog[];
+    setLogs(data.slice(0, 30));
+  };
+
   useEffect(() => {
     const bootstrap = async () => {
       try {
         await fetch(`${CONTROL_API}/health`).then((res) => res.json());
         setHealthy(true);
-        await loadState();
+        await Promise.all([loadState(), loadLogs()]);
       } catch {
         setHealthy(false);
       }
     };
     bootstrap();
+
+    const timer = setInterval(() => {
+      loadLogs().catch(() => undefined);
+    }, 3000);
+
+    return () => clearInterval(timer);
   }, []);
 
   const handleToggle = async () => {
@@ -53,7 +78,7 @@ export const App = () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ enabled: !state.enabled }),
       });
-      await loadState();
+      await Promise.all([loadState(), loadLogs()]);
     } finally {
       setLoading(false);
     }
@@ -67,7 +92,7 @@ export const App = () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ profileId }),
       });
-      await loadState();
+      await Promise.all([loadState(), loadLogs()]);
     } finally {
       setLoading(false);
     }
@@ -110,6 +135,46 @@ export const App = () => {
             </div>
           </div>
         )}
+        <div className="logs">
+          <h2>Recent Requests</h2>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Method</th>
+                  <th>URL</th>
+                  <th>Profile</th>
+                  <th>Chaos</th>
+                  <th>Delay</th>
+                  <th>Error</th>
+                  <th>Timeout</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.length === 0 && (
+                  <tr>
+                    <td colSpan={9}>No requests yet.</td>
+                  </tr>
+                )}
+                {logs.map((log) => (
+                  <tr key={`${log.timestamp}-${log.method}-${log.url}`}>
+                    <td>{new Date(log.timestamp).toLocaleTimeString()}</td>
+                    <td>{log.method}</td>
+                    <td>{log.url}</td>
+                    <td>{log.profile}</td>
+                    <td>{log.chaosEnabled ? 'on' : 'off'}</td>
+                    <td>{log.delayApplied ? 'yes' : 'no'}</td>
+                    <td>{log.errorApplied ? 'yes' : 'no'}</td>
+                    <td>{log.timeoutApplied ? 'yes' : 'no'}</td>
+                    <td>{log.statusCode}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
     </main>
   );
