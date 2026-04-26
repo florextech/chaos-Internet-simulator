@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "pnpm --filter @chaos-internet-simulator/core build && pnpm --filter @chaos-internet-simulator/presets build && tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --coverage",
     "lint": "eslint src --ext .ts",
     "format": "prettier --check \"src/**/*.ts\""
   },
