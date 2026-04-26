@@ -146,6 +146,18 @@ export HTTP_PROXY=http://localhost:8080
 export HTTPS_PROXY=http://localhost:8080
 ```
 
+## Plugin system
+
+- Local plugins are loaded from `plugins/`.
+- Request hooks can force errors, add delays, skip chaos, set headers, or drop connections.
+- Response hooks can set response headers.
+- Plugin errors are isolated and recorded in logs.
+
+See full API:
+
+- `docs/plugins.md`
+- `plugins/random-auth-failure.example.ts`
+
 ## Control API
 
 - `GET /health`

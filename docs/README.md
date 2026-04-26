@@ -9,6 +9,7 @@ This folder contains detailed guides for each app and major workflow in Chaos In
 - [CLI Guide](./cli.md)
 - [Configuration Guide](./configuration.md)
 - [Developer Workflows](./developer-workflows.md)
+- [Plugin System](./plugins.md)
 
 ## Suggested Reading Path
 
