@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge, Button, Card } from '@florexlabs/ui';
+import { Badge, Button, Card, Input } from '@florexlabs/ui';
 
 const CONTROL_API = import.meta.env.VITE_CONTROL_API_URL ?? 'http://localhost:8081';
 
@@ -375,8 +375,7 @@ export const App = () => {
           <div className="config-block">
             <p className="label">Target base URL</p>
             <div className="inline-form">
-              <input
-                className="text-input"
+              <Input
                 value={targetBaseUrlDraft}
                 onChange={(event) => setTargetBaseUrlDraft(event.target.value)}
                 placeholder="https://jsonplaceholder.typicode.com"
@@ -403,8 +402,7 @@ export const App = () => {
               {rulesDraft.length === 0 && <p className="label">No URL rules configured.</p>}
               {rulesDraft.map((rule, index) => (
                 <div key={`${index}-${rule.match}-${rule.profile}`} className="rule-row">
-                  <input
-                    className="text-input"
+                  <Input
                     value={rule.match}
                     onChange={(event) => updateRuleRow(index, 'match', event.target.value)}
                     placeholder="/payments or api.example.com"
@@ -444,15 +442,13 @@ export const App = () => {
           <div className="config-block">
             <p className="label">Custom profile</p>
             <div className="custom-grid">
-              <input
-                className="text-input"
+              <Input
                 value={customProfileName}
                 onChange={(event) => setCustomProfileName(event.target.value)}
                 placeholder="profile-name"
                 disabled={loading}
               />
-              <input
-                className="text-input"
+              <Input
                 type="number"
                 min={0}
                 value={customDelayMs}
@@ -460,8 +456,7 @@ export const App = () => {
                 placeholder="delayMs"
                 disabled={loading}
               />
-              <input
-                className="text-input"
+              <Input
                 type="number"
                 min={0}
                 max={100}
@@ -470,8 +465,7 @@ export const App = () => {
                 placeholder="errorRatePercent"
                 disabled={loading}
               />
-              <input
-                className="text-input"
+              <Input
                 type="number"
                 min={0}
                 max={100}
@@ -480,8 +474,7 @@ export const App = () => {
                 placeholder="timeoutRatePercent"
                 disabled={loading}
               />
-              <input
-                className="text-input"
+              <Input
                 type="number"
                 min={0}
                 value={customTimeoutMs}
@@ -489,8 +482,7 @@ export const App = () => {
                 placeholder="timeoutMs"
                 disabled={loading}
               />
-              <input
-                className="text-input"
+              <Input
                 type="number"
                 min={1}
                 value={customDownloadKbps}
