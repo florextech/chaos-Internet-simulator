@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@florexlabs/ui';
+import { Badge, Button, Card } from '@florexlabs/ui';
 
 const CONTROL_API = import.meta.env.VITE_CONTROL_API_URL ?? 'http://localhost:8081';
 
@@ -258,13 +258,13 @@ export const App = () => {
             <p className="eyebrow">Florex Labs</p>
             <h1>Chaos Internet Simulator</h1>
           </div>
-          <span className={healthy ? 'pill pill-ok' : 'pill pill-error'}>
+          <Badge tone={healthy ? 'success' : 'danger'}>
             Control API: {healthy ? 'connected' : 'disconnected'}
-          </span>
+          </Badge>
         </header>
 
         {metrics && (
-          <div className="panel metrics-panel">
+          <Card className="metrics-panel" padding="sm">
             <div className="logs-head">
               <h2>Metrics</h2>
             </div>
@@ -306,11 +306,11 @@ export const App = () => {
                 <p>{metrics.activeScenario ?? 'none'}</p>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {state && (
-          <div className="panel panel-top">
+          <Card className="panel-top" padding="sm">
             <div className="row row-top">
               <div className="status-block">
                 <p className="label">Chaos status</p>
@@ -364,10 +364,10 @@ export const App = () => {
                 <p>{state.rules.downloadKbps ? `${state.rules.downloadKbps} kbps` : 'none'}</p>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
-        <div className="panel config-panel">
+        <Card className="config-panel" padding="sm">
           <div className="logs-head">
             <h2>Chaos Configuration</h2>
           </div>
@@ -505,12 +505,12 @@ export const App = () => {
           </div>
 
           {message && <p className="config-message">{message}</p>}
-        </div>
+        </Card>
 
-        <div className="panel logs">
+        <Card className="logs" padding="sm">
           <div className="logs-head">
             <h2>Recent Requests</h2>
-            <span className="pill">{logs.length} rows</span>
+            <Badge tone="brand">{logs.length} rows</Badge>
           </div>
           <div className="table-wrap">
             <table>
@@ -550,16 +550,16 @@ export const App = () => {
                     <td>{log.throttlingApplied ? `${log.downloadKbpsApplied} kbps` : '-'}</td>
                     <td>{log.appliedRule ?? '-'}</td>
                     <td>
-                      <span className={log.statusCode >= 400 ? 'status bad' : 'status good'}>
+                      <Badge tone={log.statusCode >= 400 ? 'danger' : 'success'}>
                         {log.statusCode}
-                      </span>
+                      </Badge>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       </section>
     </main>
   );
