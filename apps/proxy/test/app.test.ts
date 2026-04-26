@@ -146,7 +146,42 @@ describe('proxy app', () => {
         url: '/posts/1',
         statusCode: 201,
         chaosEnabled: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
         appliedRule: null,
+      }),
+    );
+  });
+
+  it('throttles response when downloadKbps is configured', async () => {
+    app.chaosState.enabled = true;
+    app.chaosState.profileId = 'custom-profile';
+    app.chaosState.rules = {
+      delayMs: 0,
+      errorRatePercent: 0,
+      timeoutRatePercent: 0,
+      timeoutMs: 1,
+      downloadKbps: 10,
+    };
+    randomProvider.mockReturnValue(0.99);
+
+    const payload = 'x'.repeat(2048);
+    fetchMock.mockResolvedValue(new Response(payload, { status: 200 }));
+
+    const startedAt = Date.now();
+    const response = await app.proxyServer.inject({ method: 'GET', url: '/slow-body' });
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.length).toBe(2048);
+    expect(elapsedMs).toBeGreaterThanOrEqual(1000);
+
+    const logs = await app.controlServer.inject({ method: 'GET', url: '/logs' });
+    expect(logs.json()[0]).toEqual(
+      expect.objectContaining({
+        url: '/slow-body',
+        throttlingApplied: true,
+        downloadKbpsApplied: 10,
       }),
     );
   });

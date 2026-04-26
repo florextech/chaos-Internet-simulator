@@ -18,6 +18,8 @@ export type ProxyLogEntry = {
   delayApplied: boolean;
   errorApplied: boolean;
   timeoutApplied: boolean;
+  throttlingApplied: boolean;
+  downloadKbpsApplied: number | null;
   statusCode: number;
   appliedRule: string | null;
   timestamp: string;
@@ -47,12 +49,43 @@ const createNoChaosDecision = () => ({
   errorApplied: false,
   timeoutApplied: false,
   timeoutMs: 0,
+  throttlingApplied: false,
+  downloadKbps: null,
 });
 
 const sleep = async (ms: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+
+const sendThrottledResponse = async (
+  reply: { hijack: () => void; raw: import('node:http').ServerResponse },
+  response: Response,
+  payload: Buffer,
+  downloadKbps: number,
+): Promise<void> => {
+  reply.hijack();
+  const raw = reply.raw;
+  raw.statusCode = response.status;
+  response.headers.forEach((value, key) => {
+    raw.setHeader(key, value);
+  });
+
+  const tickMs = 100;
+  const bytesPerSecond = Math.max(1, Math.floor((downloadKbps * 1024) / 8));
+  const chunkSize = Math.max(1, Math.floor((bytesPerSecond * tickMs) / 1000));
+
+  let offset = 0;
+  while (offset < payload.length) {
+    const nextOffset = Math.min(payload.length, offset + chunkSize);
+    raw.write(payload.subarray(offset, nextOffset));
+    offset = nextOffset;
+    if (offset < payload.length) {
+      await sleep(tickMs);
+    }
+  }
+  raw.end();
+};
 
 export const resolveTargetUrl = (incomingUrl: string, targetBaseUrl: string): string => {
   if (incomingUrl.startsWith('http://') || incomingUrl.startsWith('https://')) {
@@ -122,6 +155,8 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         delayApplied: decision.delayApplied,
         errorApplied: false,
         timeoutApplied: true,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -139,6 +174,8 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         delayApplied: decision.delayApplied,
         errorApplied: true,
         timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -155,11 +192,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
           : (request.body as BodyInit | undefined),
     });
 
-    const body = await response.arrayBuffer();
-    reply.code(response.status);
-    response.headers.forEach((value, key) => {
-      reply.header(key, value);
-    });
+    const body = Buffer.from(await response.arrayBuffer());
 
     pushLog({
       method: request.method,
@@ -169,11 +202,23 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       delayApplied: decision.delayApplied,
       errorApplied: false,
       timeoutApplied: false,
+      throttlingApplied: decision.throttlingApplied,
+      downloadKbpsApplied: decision.downloadKbps,
       statusCode: response.status,
       appliedRule: matchedRule?.match ?? null,
       timestamp: new Date().toISOString(),
     });
-    return reply.send(Buffer.from(body));
+
+    if (decision.throttlingApplied && decision.downloadKbps) {
+      await sendThrottledResponse(reply, response, body, decision.downloadKbps);
+      return;
+    }
+
+    reply.code(response.status);
+    response.headers.forEach((value, key) => {
+      reply.header(key, value);
+    });
+    return reply.send(body);
   });
 
   proxyServer.server.on('connect', async (request, clientSocket, head) => {
@@ -208,6 +253,8 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         delayApplied: decision.delayApplied,
         errorApplied: false,
         timeoutApplied: true,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
         statusCode: 504,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -226,6 +273,8 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         delayApplied: decision.delayApplied,
         errorApplied: true,
         timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
         statusCode: 502,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -251,6 +300,8 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         delayApplied: decision.delayApplied,
         errorApplied: false,
         timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
         statusCode: 200,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
