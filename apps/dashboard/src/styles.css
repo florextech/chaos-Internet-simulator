@@ -35,6 +35,36 @@ p {
   margin: 0;
 }
 
+.controls {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+button,
+select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.rule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  color: #4b5563;
+  font-size: 14px;
+}
+
 .ok {
   color: #0f766e;
 }
