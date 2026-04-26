@@ -25,6 +25,7 @@ export type ProxyLogEntry = {
   timeoutApplied: boolean;
   throttlingApplied: boolean;
   downloadKbpsApplied: number | null;
+  droppedConnectionApplied: boolean;
   statusCode: number;
   appliedRule: string | null;
   timestamp: string;
@@ -105,6 +106,16 @@ export const resolveTargetUrl = (incomingUrl: string, targetBaseUrl: string): st
     return incomingUrl;
   }
   return new URL(incomingUrl, targetBaseUrl).toString();
+};
+
+const parseConnectTarget = (rawUrl: string): { host: string; port: number } | null => {
+  const [hostPart, rawPort] = rawUrl.split(':');
+  if (!hostPart) return null;
+  const port = Number(rawPort || 443);
+  if (Number.isNaN(port) || port <= 0 || port > 65535) {
+    return null;
+  }
+  return { host: hostPart, port };
 };
 
 export const createProxySystem = (options: ProxySystemOptions = {}) => {
@@ -270,6 +281,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         timeoutApplied: true,
         throttlingApplied: false,
         downloadKbpsApplied: null,
+        droppedConnectionApplied: false,
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -289,6 +301,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         timeoutApplied: false,
         throttlingApplied: false,
         downloadKbpsApplied: null,
+        droppedConnectionApplied: false,
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -317,6 +330,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       timeoutApplied: false,
       throttlingApplied: decision.throttlingApplied,
       downloadKbpsApplied: decision.downloadKbps,
+      droppedConnectionApplied: false,
       statusCode: response.status,
       appliedRule: matchedRule?.match ?? null,
       timestamp: new Date().toISOString(),
@@ -336,8 +350,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
   proxyServer.server.on('connect', async (request, clientSocket, head) => {
     const url = request.url ?? '';
-    const [host, rawPort] = url.split(':');
-    const port = Number(rawPort || 443);
+    const target = parseConnectTarget(url);
     const targetUrl = `https://${url}`;
     const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
     const activeProfileId = matchedRule?.profile ?? chaosState.profileId;
@@ -346,7 +359,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       ? decideChaos(activeRules, randomProvider)
       : createNoChaosDecision();
 
-    if (!host || Number.isNaN(port)) {
+    if (!target) {
       clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
       clientSocket.destroy();
       return;
@@ -368,6 +381,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         timeoutApplied: true,
         throttlingApplied: false,
         downloadKbpsApplied: null,
+        droppedConnectionApplied: false,
         statusCode: 504,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -378,6 +392,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     }
 
     if (decision.errorApplied) {
+      // HTTPS drop simulation: close tunnel connection before establishing upstream.
       pushLog({
         method: 'CONNECT',
         url,
@@ -388,16 +403,16 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         timeoutApplied: false,
         throttlingApplied: false,
         downloadKbpsApplied: null,
-        statusCode: 502,
+        droppedConnectionApplied: true,
+        statusCode: 0,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       });
-      clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
       clientSocket.destroy();
       return;
     }
 
-    const upstreamSocket = net.connect(port, host, () => {
+    const upstreamSocket = net.connect(target.port, target.host, () => {
       clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
       if (head.length) {
         upstreamSocket.write(head);
@@ -415,6 +430,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         timeoutApplied: false,
         throttlingApplied: false,
         downloadKbpsApplied: null,
+        droppedConnectionApplied: false,
         statusCode: 200,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -422,7 +438,21 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     });
 
     upstreamSocket.on('error', () => {
-      clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+      pushLog({
+        method: 'CONNECT',
+        url,
+        profile: activeProfileId,
+        chaosEnabled: chaosState.enabled,
+        delayApplied: decision.delayApplied,
+        errorApplied: false,
+        timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
+        droppedConnectionApplied: true,
+        statusCode: 0,
+        appliedRule: matchedRule?.match ?? null,
+        timestamp: new Date().toISOString(),
+      });
       clientSocket.destroy();
     });
   });

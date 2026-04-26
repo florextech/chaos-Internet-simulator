@@ -13,6 +13,7 @@ const connectThroughProxy = async (
   new Promise((resolve, reject) => {
     const socket = net.connect(proxyPort, '127.0.0.1');
     let data = '';
+    let resolved = false;
 
     socket.on('connect', () => {
       socket.write(
@@ -23,7 +24,14 @@ const connectThroughProxy = async (
     socket.on('data', (chunk) => {
       data += chunk.toString();
       if (data.includes('\r\n\r\n')) {
+        resolved = true;
         socket.destroy();
+        resolve(data);
+      }
+    });
+
+    socket.on('close', () => {
+      if (!resolved) {
         resolve(data);
       }
     });
@@ -260,7 +268,7 @@ describe('proxy app', () => {
     };
     randomProvider.mockReturnValue(0);
     const failed = await connectThroughProxy(proxyPort, '127.0.0.1', targetPort);
-    expect(failed.startsWith('HTTP/1.1 502 Bad Gateway')).toBe(true);
+    expect(failed).toBe('');
 
     app.chaosState.rules = {
       delayMs: 0,
@@ -295,7 +303,7 @@ describe('proxy app', () => {
     app.chaosState.enabled = false;
     const closedPort = targetPort;
     const upstreamError = await connectThroughProxy(proxyPort, '127.0.0.1', closedPort);
-    expect(upstreamError.startsWith('HTTP/1.1 502 Bad Gateway')).toBe(true);
+    expect(upstreamError).toBe('');
   });
 
   it('applies matching profile rules per request', async () => {
