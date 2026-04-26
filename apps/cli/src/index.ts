@@ -39,6 +39,10 @@ const printHelp = (): void => {
   console.log('  logs');
   console.log('  scenario <scenarioName>');
   console.log('  scenario off');
+  console.log('  record start');
+  console.log('  record stop');
+  console.log('  replay <recordingFile>');
+  console.log('  replay off');
 };
 
 const requestJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
@@ -156,6 +160,59 @@ const setScenario = async (value: string | undefined): Promise<void> => {
   console.log(`Scenario "${response.state.scenario.name}" enabled.`);
 };
 
+const setRecording = async (value: string | undefined): Promise<void> => {
+  if (!value || (value !== 'start' && value !== 'stop')) {
+    throw new Error('Usage: chaos-net record <start|stop>');
+  }
+
+  if (value === 'start') {
+    const response = await requestJson<{ ok: boolean; filePath: string }>('/record/start', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) throw new Error('Failed to start recording');
+    console.log(`Recording started: ${response.filePath}`);
+    return;
+  }
+
+  const response = await requestJson<{ ok: boolean; filePath: string | null; entriesWritten: number }>(
+    '/record/stop',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    },
+  );
+  if (!response.ok) throw new Error('Failed to stop recording');
+  console.log(`Recording stopped. File: ${response.filePath ?? 'none'} entries=${response.entriesWritten}`);
+};
+
+const setReplay = async (value: string | undefined): Promise<void> => {
+  if (!value) {
+    throw new Error('Usage: chaos-net replay <recordingFile|off>');
+  }
+
+  if (value === 'off') {
+    await requestJson('/replay/stop', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    console.log('Replay disabled.');
+    return;
+  }
+
+  const response = await requestJson<{ ok: boolean; filePath: string; entriesLoaded: number }>(
+    '/replay/start',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ recordingFile: value }),
+    },
+  );
+  if (!response.ok) throw new Error('Failed to start replay');
+  console.log(`Replay enabled: ${response.filePath} entries=${response.entriesLoaded}`);
+};
+
 const main = async (): Promise<void> => {
   const [command, argument] = process.argv.slice(2);
 
@@ -187,6 +244,14 @@ const main = async (): Promise<void> => {
     }
     if (command === 'scenario') {
       await setScenario(argument);
+      return;
+    }
+    if (command === 'record') {
+      await setRecording(argument);
+      return;
+    }
+    if (command === 'replay') {
+      await setReplay(argument);
       return;
     }
 
