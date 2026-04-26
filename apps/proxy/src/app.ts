@@ -8,7 +8,7 @@ import {
   type ChaosProfileRule,
   type ChaosRules,
 } from '@chaos-internet-simulator/core';
-import { getPresetById, PRESETS } from '@chaos-internet-simulator/presets';
+import { getPresetById, getScenarioByName, PRESETS } from '@chaos-internet-simulator/presets';
 
 export type ProxyLogEntry = {
   method: string;
@@ -41,6 +41,13 @@ type ChaosState = {
   rules: ChaosRules;
   profileRules: ChaosProfileRule[];
   customProfiles: Record<string, ChaosRules>;
+  scenario: {
+    name: string;
+    loop: boolean;
+    stepIndex: number;
+    currentProfile: string;
+    stepEndsAt: string;
+  } | null;
 };
 
 const createNoChaosDecision = () => ({
@@ -115,14 +122,84 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     rules: initialRules,
     profileRules: options.profileRules ?? [],
     customProfiles,
+    scenario: null,
   };
   const requestLogs: ProxyLogEntry[] = [];
+  let scenarioTimer: NodeJS.Timeout | undefined;
 
   const pushLog = (entry: ProxyLogEntry): void => {
     requestLogs.unshift(entry);
     if (requestLogs.length > 200) {
       requestLogs.pop();
     }
+  };
+
+  const clearScenarioTimer = (): void => {
+    if (scenarioTimer) {
+      clearTimeout(scenarioTimer);
+      scenarioTimer = undefined;
+    }
+  };
+
+  const stopScenarioRuntime = (): void => {
+    clearScenarioTimer();
+    chaosState.scenario = null;
+  };
+
+  const applyProfile = (profileId: string): boolean => {
+    const selectedRules = resolveProfileRules(profileId);
+    if (!selectedRules) return false;
+    chaosState.profileId = profileId;
+    chaosState.rules = selectedRules;
+    return true;
+  };
+
+  const startScenarioRuntime = (scenarioName: string): boolean => {
+    const scenario = getScenarioByName(scenarioName);
+    if (!scenario) {
+      return false;
+    }
+
+    clearScenarioTimer();
+    chaosState.enabled = true;
+
+    const runStep = (index: number): void => {
+      const step = scenario.steps[index];
+      if (!step) {
+        if (scenario.loop) {
+          runStep(0);
+        } else {
+          stopScenarioRuntime();
+        }
+        return;
+      }
+
+      if (applyProfile(step.profile)) {
+        chaosState.scenario = {
+          name: scenario.name,
+          loop: scenario.loop,
+          stepIndex: index,
+          currentProfile: step.profile,
+          stepEndsAt: new Date(Date.now() + step.durationMs).toISOString(),
+        };
+      }
+
+      scenarioTimer = setTimeout(() => {
+        const nextIndex = index + 1;
+        if (nextIndex >= scenario.steps.length) {
+          if (scenario.loop) {
+            runStep(0);
+          } else {
+            stopScenarioRuntime();
+          }
+          return;
+        }
+        runStep(nextIndex);
+      }, step.durationMs);
+    };
+
+    runStep(0);
+    return true;
   };
 
   const proxyServer = Fastify({ logger: true });
@@ -324,6 +401,9 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       return reply.code(400).send({ error: 'enabled must be boolean' });
     }
     chaosState.enabled = request.body.enabled;
+    if (!chaosState.enabled) {
+      stopScenarioRuntime();
+    }
     return { ok: true, state: chaosState };
   });
 
@@ -333,13 +413,11 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       return reply.code(400).send({ error: 'profileId is required' });
     }
 
-    const selectedRules = resolveProfileRules(profileId);
-    if (!selectedRules) {
+    const updated = applyProfile(profileId);
+    if (!updated) {
       return reply.code(404).send({ error: `profile not found: ${profileId}` });
     }
-
-    chaosState.profileId = profileId;
-    chaosState.rules = selectedRules;
+    stopScenarioRuntime();
     return { ok: true, state: chaosState };
   });
 
@@ -366,5 +444,12 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
   controlServer.get('/logs', async () => requestLogs);
 
-  return { proxyServer, controlServer, chaosState, requestLogs };
+  return {
+    proxyServer,
+    controlServer,
+    chaosState,
+    requestLogs,
+    startScenarioRuntime,
+    stopScenarioRuntime,
+  };
 };

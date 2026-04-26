@@ -70,6 +70,7 @@ describe('proxy app', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     await app.proxyServer.close();
     await app.controlServer.close();
   });
@@ -352,5 +353,66 @@ describe('proxy app', () => {
     expect(bad.statusCode).toBe(400);
     expect(good.statusCode).toBe(200);
     expect(app.chaosState.profileRules).toEqual([{ match: '/posts', profile: 'slow-3g' }]);
+  });
+
+  it('runs scenario steps and stops at the end for non-loop scenarios', async () => {
+    vi.useFakeTimers();
+
+    const started = app.startScenarioRuntime('api-degrading');
+    expect(started).toBe(true);
+    expect(app.chaosState.enabled).toBe(true);
+    expect(app.chaosState.profileId).toBe('normal');
+    expect(app.chaosState.scenario?.stepIndex).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(app.chaosState.profileId).toBe('unstable-api');
+    expect(app.chaosState.scenario?.stepIndex).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(app.chaosState.profileId).toBe('total-chaos');
+    expect(app.chaosState.scenario?.stepIndex).toBe(2);
+
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(app.chaosState.scenario).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it('supports loop scenarios and can be stopped manually', async () => {
+    vi.useFakeTimers();
+
+    const started = app.startScenarioRuntime('bad-mobile-network');
+    expect(started).toBe(true);
+    expect(app.chaosState.profileId).toBe('normal');
+
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(app.chaosState.profileId).toBe('slow-3g');
+
+    app.stopScenarioRuntime();
+    expect(app.chaosState.scenario).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(app.chaosState.profileId).toBe('slow-3g');
+
+    vi.useRealTimers();
+  });
+
+  it('stops active scenario when chaos is disabled', async () => {
+    app.startScenarioRuntime('bad-mobile-network');
+    expect(app.chaosState.scenario).not.toBeNull();
+
+    const response = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/enabled',
+      payload: { enabled: false },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(app.chaosState.scenario).toBeNull();
+  });
+
+  it('returns false when trying to start an unknown scenario', () => {
+    const started = app.startScenarioRuntime('missing-scenario');
+    expect(started).toBe(false);
   });
 });
