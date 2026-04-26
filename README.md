@@ -22,15 +22,33 @@ This project helps you reproduce:
 ```text
 chaos-Internet-simulator/
 ├── apps/
-│   ├── proxy/
-│   └── dashboard/
+│   ├── cli/
+│   │   ├── src/
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── dashboard/
+│   │   ├── src/
+│   │   ├── package.json
+│   │   ├── vite.config.ts
+│   │   └── vitest.config.ts
+│   └── proxy/
+│       ├── src/
+│       ├── test/
+│       ├── package.json
+│       ├── Dockerfile
+│       └── vitest.config.ts
 ├── packages/
 │   ├── core/
+│   │   ├── src/
+│   │   └── test/
 │   └── presets/
+│       └── src/
 ├── examples/
+│   └── chaos.config.example.json
 ├── docker-compose.yml
 ├── package.json
 ├── pnpm-workspace.yaml
+├── pnpm-lock.yaml
 ├── tsconfig.base.json
 ├── .gitignore
 ├── .env.example
