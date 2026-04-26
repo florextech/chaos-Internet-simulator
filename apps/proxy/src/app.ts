@@ -8,7 +8,12 @@ import {
   type ChaosProfileRule,
   type ChaosRules,
 } from '@chaos-internet-simulator/core';
-import { getPresetById, getScenarioByName, PRESETS } from '@chaos-internet-simulator/presets';
+import {
+  getPresetById,
+  getScenarioByName,
+  PRESETS,
+  SCENARIOS,
+} from '@chaos-internet-simulator/presets';
 
 export type ProxyLogEntry = {
   method: string;
@@ -443,6 +448,27 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   });
 
   controlServer.get('/logs', async () => requestLogs);
+  controlServer.get('/scenario', async () => ({ activeScenario: chaosState.scenario }));
+  controlServer.get('/scenarios', async () => ({ scenarios: SCENARIOS }));
+
+  controlServer.post<{ Body: { name?: string } }>('/scenario', async (request, reply) => {
+    const scenarioName = request.body?.name;
+    if (!scenarioName) {
+      return reply.code(400).send({ error: 'scenario name is required' });
+    }
+
+    const started = startScenarioRuntime(scenarioName);
+    if (!started) {
+      return reply.code(404).send({ error: `scenario not found: ${scenarioName}` });
+    }
+
+    return { ok: true, state: chaosState };
+  });
+
+  controlServer.post('/scenario/off', async () => {
+    stopScenarioRuntime();
+    return { ok: true, state: chaosState };
+  });
 
   return {
     proxyServer,

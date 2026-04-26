@@ -415,4 +415,42 @@ describe('proxy app', () => {
     const started = app.startScenarioRuntime('missing-scenario');
     expect(started).toBe(false);
   });
+
+  it('controls scenarios through API endpoints', async () => {
+    const missing = await app.controlServer.inject({
+      method: 'POST',
+      url: '/scenario',
+      payload: {},
+    });
+    const unknown = await app.controlServer.inject({
+      method: 'POST',
+      url: '/scenario',
+      payload: { name: 'missing' },
+    });
+    const start = await app.controlServer.inject({
+      method: 'POST',
+      url: '/scenario',
+      payload: { name: 'bad-mobile-network' },
+    });
+    const scenario = await app.controlServer.inject({
+      method: 'GET',
+      url: '/scenario',
+    });
+    const scenarios = await app.controlServer.inject({
+      method: 'GET',
+      url: '/scenarios',
+    });
+    const off = await app.controlServer.inject({
+      method: 'POST',
+      url: '/scenario/off',
+    });
+
+    expect(missing.statusCode).toBe(400);
+    expect(unknown.statusCode).toBe(404);
+    expect(start.statusCode).toBe(200);
+    expect(scenario.json().activeScenario).not.toBeNull();
+    expect(scenarios.json().scenarios.length).toBeGreaterThan(0);
+    expect(off.statusCode).toBe(200);
+    expect(app.chaosState.scenario).toBeNull();
+  });
 });
