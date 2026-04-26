@@ -11,6 +11,18 @@ type ChaosState = {
   };
 };
 
+type RequestLog = {
+  method: string;
+  url: string;
+  profile: string;
+  chaosEnabled: boolean;
+  delayApplied: boolean;
+  errorApplied: boolean;
+  timeoutApplied: boolean;
+  statusCode: number;
+  timestamp: string;
+};
+
 const CONTROL_API_URL = process.env.CHAOS_CONTROL_API_URL ?? 'http://localhost:8081';
 
 const printHelp = (): void => {
@@ -93,6 +105,26 @@ const switchProfile = async (profileId: string | undefined): Promise<void> => {
   console.log(`Profile changed to "${result.state.profileId}".`);
 };
 
+const printLogs = async (): Promise<void> => {
+  const logs = await requestJson<RequestLog[]>('/logs');
+  if (logs.length === 0) {
+    console.log('No logs yet.');
+    return;
+  }
+
+  logs.slice(0, 20).forEach((log) => {
+    const flags = [
+      `delay:${log.delayApplied ? 'y' : 'n'}`,
+      `error:${log.errorApplied ? 'y' : 'n'}`,
+      `timeout:${log.timeoutApplied ? 'y' : 'n'}`,
+    ].join(' ');
+
+    console.log(
+      `[${new Date(log.timestamp).toLocaleTimeString()}] ${log.method} ${log.url} status=${log.statusCode} profile=${log.profile} chaos=${log.chaosEnabled ? 'on' : 'off'} ${flags}`,
+    );
+  });
+};
+
 const main = async (): Promise<void> => {
   const [command, argument] = process.argv.slice(2);
 
@@ -116,6 +148,10 @@ const main = async (): Promise<void> => {
     }
     if (command === 'profile') {
       await switchProfile(argument);
+      return;
+    }
+    if (command === 'logs') {
+      await printLogs();
       return;
     }
 
