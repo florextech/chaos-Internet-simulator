@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from '@florexlabs/ui';
 
 const CONTROL_API = import.meta.env.VITE_CONTROL_API_URL ?? 'http://localhost:8081';
 
@@ -320,9 +321,9 @@ export const App = () => {
                   <p className="label">Scenario: {state.scenario.name}</p>
                 )}
               </div>
-              <button className="btn btn-primary" onClick={handleToggle} disabled={loading}>
+              <Button variant="primary" onClick={handleToggle} disabled={loading}>
                 {state.enabled ? 'Disable chaos' : 'Enable chaos'}
-              </button>
+              </Button>
             </div>
             <div className="row">
               <p className="label">Profile</p>
@@ -381,22 +382,22 @@ export const App = () => {
                 placeholder="https://jsonplaceholder.typicode.com"
                 disabled={loading}
               />
-              <button className="btn btn-secondary" onClick={handleSaveTargetBaseUrl} disabled={loading}>
+              <Button variant="secondary" onClick={handleSaveTargetBaseUrl} disabled={loading}>
                 Save URL
-              </button>
+              </Button>
             </div>
           </div>
 
           <div className="config-block">
             <div className="row row-inline">
               <p className="label">Rules by URL/domain/path</p>
-              <button
-                className="btn btn-ghost"
+              <Button
+                variant="ghost"
                 onClick={() => setRulesDraft((current) => [...current, { match: '', profile: state?.profileId ?? '' }])}
                 disabled={loading || profiles.length === 0}
               >
                 + Add rule
-              </button>
+              </Button>
             </div>
             <div className="rules-editor">
               {rulesDraft.length === 0 && <p className="label">No URL rules configured.</p>}
@@ -423,21 +424,21 @@ export const App = () => {
                       ))}
                     </select>
                   </div>
-                  <button
-                    className="btn btn-ghost"
+                  <Button
+                    variant="ghost"
                     onClick={() =>
                       setRulesDraft((current) => current.filter((_, ruleIndex) => ruleIndex !== index))
                     }
                     disabled={loading}
                   >
                     Remove
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
-            <button className="btn btn-secondary" onClick={handleSaveRules} disabled={loading}>
+            <Button variant="secondary" onClick={handleSaveRules} disabled={loading}>
               Save rules
-            </button>
+            </Button>
           </div>
 
           <div className="config-block">
@@ -498,9 +499,9 @@ export const App = () => {
                 disabled={loading}
               />
             </div>
-            <button className="btn btn-secondary" onClick={handleSaveCustomProfile} disabled={loading}>
+            <Button variant="secondary" onClick={handleSaveCustomProfile} disabled={loading}>
               Save custom profile
-            </button>
+            </Button>
           </div>
 
           {message && <p className="config-message">{message}</p>}
