@@ -58,6 +58,23 @@ const printStatus = async (): Promise<void> => {
   );
 };
 
+const setEnabled = async (enabled: boolean): Promise<void> => {
+  const result = await requestJson<{ ok: boolean; state: ChaosState }>('/state/enabled', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!result.ok) {
+    throw new Error('Failed to update chaos state.');
+  }
+
+  console.log(
+    enabled
+      ? `Chaos enabled with profile "${result.state.profileId}".`
+      : `Chaos disabled. Active profile remains "${result.state.profileId}".`,
+  );
+};
+
 const main = async (): Promise<void> => {
   const [command] = process.argv.slice(2);
 
@@ -69,6 +86,14 @@ const main = async (): Promise<void> => {
   try {
     if (command === 'status') {
       await printStatus();
+      return;
+    }
+    if (command === 'start') {
+      await setEnabled(true);
+      return;
+    }
+    if (command === 'off') {
+      await setEnabled(false);
       return;
     }
 
