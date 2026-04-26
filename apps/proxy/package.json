@@ -1,0 +1,22 @@
+{
+  "name": "@chaos-internet-simulator/proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@chaos-internet-simulator/core": "workspace:*",
+    "@chaos-internet-simulator/presets": "workspace:*",
+    "fastify": "^5.3.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3"
+  }
+}
