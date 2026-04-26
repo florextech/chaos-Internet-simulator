@@ -119,6 +119,10 @@ pnpm --filter @chaos-internet-simulator/cli exec chaos-net profile unstable-api
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net logs
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario bad-mobile-network
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario off
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net record start
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net record stop
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay sample.json
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay off
 ```
 
 Optional CLI env var:
@@ -174,6 +178,10 @@ See full API:
 - `GET /scenarios`
 - `POST /scenario`
 - `POST /scenario/off`
+- `POST /record/start`
+- `POST /record/stop`
+- `POST /replay/start`
+- `POST /replay/stop`
 
 The dashboard can now configure:
 

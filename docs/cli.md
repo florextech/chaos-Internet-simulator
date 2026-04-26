@@ -40,6 +40,13 @@ pnpm --filter @chaos-internet-simulator/cli exec chaos-net <command>
 - `chaos-net scenario <scenarioName>`
 - `chaos-net scenario off`
 
+## Record and replay
+
+- `chaos-net record start`
+- `chaos-net record stop`
+- `chaos-net replay <recordingFile>`
+- `chaos-net replay off`
+
 ## Examples
 
 ```bash
@@ -49,6 +56,10 @@ pnpm --filter @chaos-internet-simulator/cli exec chaos-net profile unstable-api
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net logs
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario bad-mobile-network
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario off
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net record start
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net record stop
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay sample.json
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay off
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net off
 ```
 

@@ -86,6 +86,19 @@ pnpm --filter @chaos-internet-simulator/proxy dev
 - `POST /scenario`
 - `POST /scenario/off`
 
+## Record and replay
+
+- `POST /record/start`
+- `POST /record/stop`
+- `POST /replay/start`
+- `POST /replay/stop`
+
+Behavior:
+
+- Record mode writes HTTP request/response traffic into JSON files under `recordings/`.
+- Replay mode serves previously recorded responses by method + URL match.
+- Chaos rules still apply while replay is enabled.
+
 ## Request Logs
 
 Each log row includes:
