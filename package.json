@@ -1,0 +1,15 @@
+{
+  "name": "chaos-internet-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local open source toolkit to simulate unstable internet and API behavior",
+  "license": "MIT",
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format"
+  }
+}
