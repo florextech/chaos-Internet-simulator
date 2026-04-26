@@ -6,11 +6,15 @@ import { App } from './App';
 type MockState = {
   enabled: boolean;
   profileId: string;
+  targetBaseUrl: string;
+  profileRules: Array<{ match: string; profile: string }>;
+  customProfiles: Record<string, unknown>;
   rules: {
     delayMs: number;
     errorRatePercent: number;
     timeoutRatePercent: number;
     timeoutMs: number;
+    downloadKbps?: number;
   };
   scenario: {
     name: string;
@@ -25,6 +29,9 @@ const createFetchMock = () => {
   let state: MockState = {
     enabled: false,
     profileId: 'slow-3g',
+    targetBaseUrl: 'https://jsonplaceholder.typicode.com',
+    profileRules: [],
+    customProfiles: {},
     rules: {
       delayMs: 2500,
       errorRatePercent: 2,
@@ -57,6 +64,26 @@ const createFetchMock = () => {
     }
     if (url.endsWith('/state') && (!init || init.method === 'GET')) {
       return new Response(JSON.stringify(state), { status: 200 });
+    }
+    if (url.endsWith('/profiles')) {
+      return new Response(
+        JSON.stringify({
+          profiles: [
+            { id: 'slow-3g', source: 'preset', rules: state.rules },
+            {
+              id: 'unstable-api',
+              source: 'preset',
+              rules: {
+                delayMs: 1200,
+                errorRatePercent: 25,
+                timeoutRatePercent: 10,
+                timeoutMs: 8000,
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
     }
     if (url.endsWith('/logs')) {
       return new Response(JSON.stringify(logs), { status: 200 });
@@ -91,6 +118,19 @@ const createFetchMock = () => {
       };
       state = { ...state, profileId: body.profileId, rules: profileMap[body.profileId] };
       return new Response(JSON.stringify({ ok: true, state }), { status: 200 });
+    }
+    if (url.endsWith('/state/target-base-url') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body)) as { targetBaseUrl: string };
+      state = { ...state, targetBaseUrl: body.targetBaseUrl };
+      return new Response(JSON.stringify({ ok: true, state }), { status: 200 });
+    }
+    if (url.endsWith('/state/rules') && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body)) as { rules: MockState['profileRules'] };
+      state = { ...state, profileRules: body.rules };
+      return new Response(JSON.stringify({ ok: true, state }), { status: 200 });
+    }
+    if (url.endsWith('/profiles/custom') && init?.method === 'POST') {
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
 
     return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
@@ -145,9 +185,9 @@ describe('dashboard app', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Slow 3G')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('slow-3g')).toBeInTheDocument();
     });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'unstable-api' } });
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'unstable-api' } });
 
     await waitFor(() => {
       expect(screen.getByText('1200 ms')).toBeInTheDocument();
@@ -182,8 +222,19 @@ describe('dashboard app', () => {
           JSON.stringify({
             enabled: true,
             profileId: 'slow-3g',
+            targetBaseUrl: 'https://jsonplaceholder.typicode.com',
+            profileRules: [],
+            customProfiles: {},
             rules: { delayMs: 2500, errorRatePercent: 2, timeoutRatePercent: 1, timeoutMs: 10000 },
             scenario: null,
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith('/profiles')) {
+        return new Response(
+          JSON.stringify({
+            profiles: [{ id: 'slow-3g', source: 'preset', rules: { delayMs: 2500 } }],
           }),
           { status: 200 },
         );
@@ -218,6 +269,252 @@ describe('dashboard app', () => {
 
     await waitFor(() => {
       expect(screen.getByText('50 kbps')).toBeInTheDocument();
+    });
+  });
+
+  it('updates target url from web configuration', async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('https://jsonplaceholder.typicode.com')).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByDisplayValue('https://jsonplaceholder.typicode.com'), {
+      target: { value: 'https://api.example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save URL' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:8081/state/target-base-url',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+  });
+
+  it('saves URL rules and custom profiles from web configuration', async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '+ Add rule' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Add rule' }));
+    fireEvent.change(screen.getByPlaceholderText('/payments or api.example.com'), {
+      target: { value: '/payments' },
+    });
+    fireEvent.change(screen.getAllByRole('combobox')[1], {
+      target: { value: 'unstable-api' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:8081/state/rules',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('profile-name'), {
+      target: { value: 'my-web-profile' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('downloadKbps (optional)'), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save custom profile' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:8081/profiles/custom',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+  });
+
+  it('shows error message when target URL update fails', async () => {
+    const baseFetchMock = createFetchMock();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/state/target-base-url') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ error: 'invalid url' }), { status: 400 });
+      }
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Save URL' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save URL' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Invalid target URL or control API unavailable')).toBeInTheDocument();
+    });
+  });
+
+  it('renders active scenario name from state', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/health')) {
+        return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+      }
+      if (url.endsWith('/state') && (!init || init.method === 'GET')) {
+        return new Response(
+          JSON.stringify({
+            enabled: true,
+            profileId: 'slow-3g',
+            targetBaseUrl: 'https://jsonplaceholder.typicode.com',
+            profileRules: [],
+            customProfiles: {},
+            rules: { delayMs: 2500, errorRatePercent: 2, timeoutRatePercent: 1, timeoutMs: 10000 },
+            scenario: {
+              name: 'bad-mobile-network',
+              loop: true,
+              stepIndex: 1,
+              currentProfile: 'slow-3g',
+              stepEndsAt: new Date(Date.now() + 5000).toISOString(),
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith('/profiles')) {
+        return new Response(
+          JSON.stringify({
+            profiles: [{ id: 'slow-3g', source: 'preset', rules: { delayMs: 2500 } }],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith('/logs')) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Scenario: bad-mobile-network')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error when rules update fails', async () => {
+    const baseFetchMock = createFetchMock();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/state/rules') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ error: 'bad rules' }), { status: 500 });
+      }
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '+ Add rule' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: '+ Add rule' }));
+    fireEvent.change(screen.getByPlaceholderText('/payments or api.example.com'), {
+      target: { value: '/payments' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to update URL rules')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error when custom profile save fails', async () => {
+    const baseFetchMock = createFetchMock();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/profiles/custom') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ error: 'bad profile' }), { status: 500 });
+      }
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('profile-name')).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByPlaceholderText('profile-name'), {
+      target: { value: 'broken-profile' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save custom profile' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to save custom profile')).toBeInTheDocument();
+    });
+  });
+
+  it('refreshes logs on polling interval', async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal('fetch', fetchMock);
+    const setIntervalSpy = vi
+      .spyOn(globalThis, 'setInterval')
+      .mockImplementation((handler: TimerHandler) => {
+        if (typeof handler === 'function') {
+          handler();
+        }
+        return 1 as unknown as ReturnType<typeof setInterval>;
+      });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('http://localhost:8081/logs');
+    });
+
+    setIntervalSpy.mockRestore();
+  });
+
+  it('updates all custom profile form fields from web inputs', async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('profile-name')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('profile-name'), {
+      target: { value: 'my-custom' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('delayMs'), {
+      target: { value: '3200' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('errorRatePercent'), {
+      target: { value: '12' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('timeoutRatePercent'), {
+      target: { value: '7' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('timeoutMs'), {
+      target: { value: '11000' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('downloadKbps (optional)'), {
+      target: { value: '90' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save custom profile' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:8081/profiles/custom',
+        expect.objectContaining({ method: 'POST' }),
+      );
     });
   });
 });

@@ -5,11 +5,24 @@ const CONTROL_API = import.meta.env.VITE_CONTROL_API_URL ?? 'http://localhost:80
 type ChaosState = {
   enabled: boolean;
   profileId: string;
+  targetBaseUrl: string;
+  profileRules: Array<{ match: string; profile: string }>;
+  customProfiles: Record<
+    string,
+    {
+      delayMs: number;
+      errorRatePercent: number;
+      timeoutRatePercent: number;
+      timeoutMs: number;
+      downloadKbps?: number;
+    }
+  >;
   rules: {
     delayMs: number;
     errorRatePercent: number;
     timeoutRatePercent: number;
     timeoutMs: number;
+    downloadKbps?: number;
   };
   scenario: {
     name: string;
@@ -35,23 +48,46 @@ type RequestLog = {
   timestamp: string;
 };
 
-const profiles = [
-  { id: 'slow-3g', label: 'Slow 3G' },
-  { id: 'airport-wifi', label: 'Airport WiFi' },
-  { id: 'unstable-api', label: 'Unstable API' },
-  { id: 'total-chaos', label: 'Total Chaos' },
-];
+type ProfileOption = {
+  id: string;
+  source: 'preset' | 'custom';
+  rules: {
+    delayMs: number;
+    errorRatePercent: number;
+    timeoutRatePercent: number;
+    timeoutMs: number;
+    downloadKbps?: number;
+  };
+};
 
 export const App = () => {
   const [healthy, setHealthy] = useState<boolean>(false);
   const [state, setState] = useState<ChaosState | null>(null);
   const [logs, setLogs] = useState<RequestLog[]>([]);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+  const [targetBaseUrlDraft, setTargetBaseUrlDraft] = useState('');
+  const [rulesDraft, setRulesDraft] = useState<Array<{ match: string; profile: string }>>([]);
+  const [customProfileName, setCustomProfileName] = useState('');
+  const [customDelayMs, setCustomDelayMs] = useState('2500');
+  const [customErrorRate, setCustomErrorRate] = useState('5');
+  const [customTimeoutRate, setCustomTimeoutRate] = useState('2');
+  const [customTimeoutMs, setCustomTimeoutMs] = useState('8000');
+  const [customDownloadKbps, setCustomDownloadKbps] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const loadState = async () => {
     const response = await fetch(`${CONTROL_API}/state`);
     const data = (await response.json()) as ChaosState;
     setState(data);
+    setTargetBaseUrlDraft(data.targetBaseUrl);
+    setRulesDraft(data.profileRules ?? []);
+  };
+
+  const loadProfiles = async () => {
+    const response = await fetch(`${CONTROL_API}/profiles`);
+    const data = (await response.json()) as { profiles: ProfileOption[] };
+    setProfiles(data.profiles);
   };
 
   const loadLogs = async () => {
@@ -65,7 +101,7 @@ export const App = () => {
       try {
         await fetch(`${CONTROL_API}/health`).then((res) => res.json());
         setHealthy(true);
-        await Promise.all([loadState(), loadLogs()]);
+        await Promise.all([loadState(), loadLogs(), loadProfiles()]);
       } catch {
         setHealthy(false);
       }
@@ -88,7 +124,7 @@ export const App = () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ enabled: !state.enabled }),
       });
-      await Promise.all([loadState(), loadLogs()]);
+      await Promise.all([loadState(), loadLogs(), loadProfiles()]);
     } finally {
       setLoading(false);
     }
@@ -102,7 +138,92 @@ export const App = () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ profileId }),
       });
-      await Promise.all([loadState(), loadLogs()]);
+      await Promise.all([loadState(), loadLogs(), loadProfiles()]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateRuleRow = (index: number, key: 'match' | 'profile', value: string) => {
+    setRulesDraft((current) =>
+      current.map((rule, ruleIndex) => (ruleIndex === index ? { ...rule, [key]: value } : rule)),
+    );
+  };
+
+  const handleSaveTargetBaseUrl = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`${CONTROL_API}/state/target-base-url`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ targetBaseUrl: targetBaseUrlDraft }),
+      });
+      if (!response.ok) {
+        throw new Error('Could not update target URL');
+      }
+      setMessage('Target URL updated');
+      await loadState();
+    } catch {
+      setMessage('Invalid target URL or control API unavailable');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveRules = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const cleanRules = rulesDraft
+        .map((rule) => ({ match: rule.match.trim(), profile: rule.profile }))
+        .filter((rule) => rule.match.length > 0 && rule.profile.length > 0);
+      const response = await fetch(`${CONTROL_API}/state/rules`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rules: cleanRules }),
+      });
+      if (!response.ok) {
+        throw new Error('Could not update URL rules');
+      }
+      setMessage('URL rules updated');
+      await loadState();
+    } catch {
+      setMessage('Failed to update URL rules');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveCustomProfile = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const payload = {
+        profileId: customProfileName.trim(),
+        rules: {
+          delayMs: Number(customDelayMs),
+          errorRatePercent: Number(customErrorRate),
+          timeoutRatePercent: Number(customTimeoutRate),
+          timeoutMs: Number(customTimeoutMs),
+          ...(customDownloadKbps.trim()
+            ? { downloadKbps: Number(customDownloadKbps.trim()) }
+            : {}),
+        },
+      };
+
+      const response = await fetch(`${CONTROL_API}/profiles/custom`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error('Could not save custom profile');
+      }
+      setMessage(`Custom profile "${payload.profileId}" saved`);
+      await Promise.all([loadState(), loadProfiles()]);
+    } catch {
+      setMessage('Failed to save custom profile');
     } finally {
       setLoading(false);
     }
@@ -148,7 +269,7 @@ export const App = () => {
                 >
                   {profiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
-                      {profile.label}
+                      {profile.id}
                     </option>
                   ))}
                 </select>
@@ -171,9 +292,153 @@ export const App = () => {
                 <p className="rule-label">Timeout</p>
                 <p>{state.rules.timeoutMs} ms</p>
               </div>
+              <div className="rule-item">
+                <p className="rule-label">Download</p>
+                <p>{state.rules.downloadKbps ? `${state.rules.downloadKbps} kbps` : 'none'}</p>
+              </div>
             </div>
           </div>
         )}
+
+        <div className="panel config-panel">
+          <div className="logs-head">
+            <h2>Chaos Configuration</h2>
+          </div>
+
+          <div className="config-block">
+            <p className="label">Target base URL</p>
+            <div className="inline-form">
+              <input
+                className="text-input"
+                value={targetBaseUrlDraft}
+                onChange={(event) => setTargetBaseUrlDraft(event.target.value)}
+                placeholder="https://jsonplaceholder.typicode.com"
+                disabled={loading}
+              />
+              <button className="btn btn-secondary" onClick={handleSaveTargetBaseUrl} disabled={loading}>
+                Save URL
+              </button>
+            </div>
+          </div>
+
+          <div className="config-block">
+            <div className="row row-inline">
+              <p className="label">Rules by URL/domain/path</p>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setRulesDraft((current) => [...current, { match: '', profile: state?.profileId ?? '' }])}
+                disabled={loading || profiles.length === 0}
+              >
+                + Add rule
+              </button>
+            </div>
+            <div className="rules-editor">
+              {rulesDraft.length === 0 && <p className="label">No URL rules configured.</p>}
+              {rulesDraft.map((rule, index) => (
+                <div key={`${index}-${rule.match}-${rule.profile}`} className="rule-row">
+                  <input
+                    className="text-input"
+                    value={rule.match}
+                    onChange={(event) => updateRuleRow(index, 'match', event.target.value)}
+                    placeholder="/payments or api.example.com"
+                    disabled={loading}
+                  />
+                  <div className="profile-select-wrap">
+                    <select
+                      className="profile-select"
+                      value={rule.profile}
+                      onChange={(event) => updateRuleRow(index, 'profile', event.target.value)}
+                      disabled={loading}
+                    >
+                      {profiles.map((profile) => (
+                        <option key={`rule-${index}-${profile.id}`} value={profile.id}>
+                          {profile.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      setRulesDraft((current) => current.filter((_, ruleIndex) => ruleIndex !== index))
+                    }
+                    disabled={loading}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-secondary" onClick={handleSaveRules} disabled={loading}>
+              Save rules
+            </button>
+          </div>
+
+          <div className="config-block">
+            <p className="label">Custom profile</p>
+            <div className="custom-grid">
+              <input
+                className="text-input"
+                value={customProfileName}
+                onChange={(event) => setCustomProfileName(event.target.value)}
+                placeholder="profile-name"
+                disabled={loading}
+              />
+              <input
+                className="text-input"
+                type="number"
+                min={0}
+                value={customDelayMs}
+                onChange={(event) => setCustomDelayMs(event.target.value)}
+                placeholder="delayMs"
+                disabled={loading}
+              />
+              <input
+                className="text-input"
+                type="number"
+                min={0}
+                max={100}
+                value={customErrorRate}
+                onChange={(event) => setCustomErrorRate(event.target.value)}
+                placeholder="errorRatePercent"
+                disabled={loading}
+              />
+              <input
+                className="text-input"
+                type="number"
+                min={0}
+                max={100}
+                value={customTimeoutRate}
+                onChange={(event) => setCustomTimeoutRate(event.target.value)}
+                placeholder="timeoutRatePercent"
+                disabled={loading}
+              />
+              <input
+                className="text-input"
+                type="number"
+                min={0}
+                value={customTimeoutMs}
+                onChange={(event) => setCustomTimeoutMs(event.target.value)}
+                placeholder="timeoutMs"
+                disabled={loading}
+              />
+              <input
+                className="text-input"
+                type="number"
+                min={1}
+                value={customDownloadKbps}
+                onChange={(event) => setCustomDownloadKbps(event.target.value)}
+                placeholder="downloadKbps (optional)"
+                disabled={loading}
+              />
+            </div>
+            <button className="btn btn-secondary" onClick={handleSaveCustomProfile} disabled={loading}>
+              Save custom profile
+            </button>
+          </div>
+
+          {message && <p className="config-message">{message}</p>}
+        </div>
 
         <div className="panel logs">
           <div className="logs-head">
