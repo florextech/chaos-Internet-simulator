@@ -1,70 +1,59 @@
 # Chaos Internet Simulator
 
-Chaos Internet Simulator is a local open source tool to simulate real network failures while developing and testing apps.
+![Chaos Internet Simulator Logo](./assets/chaos-internet-simulator-logo.svg)
 
-## Problem it solves
+**Break your network before your users do.**
 
-Local development usually runs on perfect internet. Production does not.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-This project helps you reproduce:
+Chaos Internet Simulator is an open source local proxy + dashboard + CLI to simulate real-world bad internet and unstable APIs during development.
 
-- slow navigation
-- unstable APIs
-- intermittent failures
-- high latency
-- random upstream errors
-- timeouts
-- airport-like WiFi behavior
-- slow mobile-like connectivity
+## Why this project?
 
-## Detailed docs
+Most teams test with perfect localhost network. Production is not perfect.
 
-For detailed guides, see:
+Chaos Internet Simulator helps teams reproduce realistic failure modes early, before users see them.
 
-- `docs/README.md`
-- `docs/proxy.md`
-- `docs/dashboard.md`
-- `docs/cli.md`
-- `docs/configuration.md`
+## Who is this for?
+
+- frontend developers validating loading/error states
+- backend developers testing retries and idempotency
+- QA and SRE teams stress-testing app resilience
+- DX and platform teams creating reproducible failure drills
+
+## Examples of what you can test
+
+- slow navigation and high latency
+- random API 5xx errors
+- intermittent timeouts
+- unstable HTTPS tunnels (CONNECT drops/timeouts)
+- selective chaos by URL/path/domain
+- scenario-based progressive degradation
+
+## Demo (placeholder)
+
+Demo GIF/recording will be added in a future release.
 
 ## Monorepo structure
 
 ```text
 chaos-Internet-simulator/
 ├── apps/
-│   ├── cli/
-│   │   ├── src/
-│   │   ├── package.json
-│   │   └── tsconfig.json
+│   ├── proxy/
 │   ├── dashboard/
-│   │   ├── src/
-│   │   ├── package.json
-│   │   ├── vite.config.ts
-│   │   └── vitest.config.ts
-│   └── proxy/
-│       ├── src/
-│       ├── test/
-│       ├── package.json
-│       ├── Dockerfile
-│       └── vitest.config.ts
+│   └── cli/
 ├── packages/
 │   ├── core/
-│   │   ├── src/
-│   │   └── test/
 │   └── presets/
-│       └── src/
+├── docs/
 ├── examples/
-│   └── chaos.config.example.json
-├── docker-compose.yml
-├── package.json
-├── pnpm-workspace.yaml
-├── pnpm-lock.yaml
-├── tsconfig.base.json
-├── .gitignore
-├── .env.example
-├── LICENSE
-├── CONTRIBUTING.md
-└── README.md
+├── plugins/
+├── recordings/
+└── ...
 ```
 
 ## Installation
@@ -73,21 +62,21 @@ chaos-Internet-simulator/
 pnpm install
 ```
 
-## Local usage
-
-1. Copy env vars:
-
-```bash
-cp .env.example .env
-```
-
-2. Run all apps in dev:
+## Quick demo
 
 ```bash
 pnpm dev
+curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts/1
 ```
 
-3. Open:
+## Local usage
+
+```bash
+cp .env.example .env
+pnpm dev
+```
+
+Open:
 
 - Dashboard: `http://localhost:3000`
 - Proxy: `http://localhost:8080`
@@ -101,177 +90,48 @@ docker compose up --build
 
 ## CLI usage
 
-The workspace includes a CLI app at `apps/cli` with command name `chaos-net`.
-
-Build it:
-
 ```bash
 pnpm --filter @chaos-internet-simulator/cli build
-```
-
-Run from workspace:
-
-```bash
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net status
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net start
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net off
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net profile unstable-api
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net logs
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario bad-mobile-network
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario off
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net record start
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net record stop
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay sample.json
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay off
 ```
 
-Optional CLI env var:
-
-- `CHAOS_CONTROL_API_URL` (default: `http://localhost:8081`)
-
-## Example with curl
+## cURL usage
 
 ```bash
 curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts
+bash examples/curl_examples.sh
 ```
 
-More ready-to-run examples:
+## Postman usage
 
-- `examples/curl_examples.sh`
+Import:
+
 - `examples/postman_collection.json`
-- `examples/node-axios-example.ts`
-- `examples/node-fetch-example.ts`
-- `docs/developer-workflows.md`
 
-Proxy environment variables:
+Then configure proxy host `localhost` port `8080`.
+
+## Axios / fetch usage
+
+- Axios sample: `examples/node-axios-example.ts`
+- fetch (undici) sample: `examples/node-fetch-example.ts`
+- Full workflow guide: `docs/developer-workflows.md`
+
+## HTTP_PROXY and HTTPS_PROXY
 
 ```bash
 export HTTP_PROXY=http://localhost:8080
 export HTTPS_PROXY=http://localhost:8080
 ```
 
-## Plugin system
-
-- Local plugins are loaded from `plugins/`.
-- Request hooks can force errors, add delays, skip chaos, set headers, or drop connections.
-- Response hooks can set response headers.
-- Plugin errors are isolated and recorded in logs.
-
-See full API:
-
-- `docs/plugins.md`
-- `plugins/random-auth-failure.example.ts`
-
-## Control API
-
-- `GET /health`
-- `GET /state`
-- `POST /state/enabled`
-- `POST /state/profile`
-- `POST /state/rules`
-- `POST /state/target-base-url`
-- `GET /logs`
-- `GET /metrics`
-- `GET /profiles`
-- `POST /profiles/custom`
-- `GET /scenario`
-- `GET /scenarios`
-- `POST /scenario`
-- `POST /scenario/off`
-- `POST /record/start`
-- `POST /record/stop`
-- `POST /replay/start`
-- `POST /replay/stop`
-
-The dashboard can now configure:
-
-- active target base URL
-- per-route rules (domain/path/URL contains)
-- custom profiles (create/update) without restarting proxy
-
-## HTTPS support (basic)
-
-- CONNECT tunneling is supported for HTTPS traffic.
-- Chaos can apply delay, timeout, and connection drop before tunnel establishment.
-- MITM is not implemented, so encrypted HTTPS payload cannot be inspected or rewritten.
-
-### Per-route chaos rules
-
-You can define profile rules that match a request URL. If a rule matches, that profile is used; if not,
-the global active profile is used.
-
-Example:
-
-```json
-{
-  "rules": [
-    {
-      "match": "jsonplaceholder.typicode.com/posts",
-      "profile": "slow-3g"
-    },
-    {
-      "match": "/payments",
-      "profile": "unstable-api"
-    }
-  ]
-}
-```
-
-Update rules at runtime:
-
-```bash
-curl -X POST http://localhost:8081/state/rules \
-  -H "content-type: application/json" \
-  -d '{"rules":[{"match":"jsonplaceholder.typicode.com/posts","profile":"slow-3g"},{"match":"/payments","profile":"unstable-api"}]}'
-```
-
-Matching mode is simple string matching (no regex): domain, path, or substring in full URL.
-
-### Network scenarios
-
-Scenarios execute profile steps over time.
-
-Available presets:
-
-- `bad-mobile-network` (loop)
-- `api-degrading` (non-loop)
-
-Start scenario:
-
-```bash
-curl -X POST http://localhost:8081/scenario \
-  -H "content-type: application/json" \
-  -d '{"name":"bad-mobile-network"}'
-```
-
-Stop scenario:
-
-```bash
-curl -X POST http://localhost:8081/scenario/off
-```
-
-CLI:
-
-```bash
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario bad-mobile-network
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario off
-```
-
-## Environment variables
-
-- `TARGET_BASE_URL` (default: `https://jsonplaceholder.typicode.com`)
-- `PROXY_PORT` (default: `8080`)
-- `CONTROL_PORT` (default: `8081`)
-- `VITE_CONTROL_API_URL` (default: `http://localhost:8081`)
-- `CHAOS_CONTROL_API_URL` (default: `http://localhost:8081`)
-
 ## chaos.config.json
-
-Proxy startup supports `chaos.config.json` loaded from current directory or nearest parent directory.
-
-See full example at:
-
-- `examples/chaos.config.example.json`
 
 Supported fields:
 
@@ -304,79 +164,115 @@ Example:
 }
 ```
 
-Priority for overlapping values:
+Priority:
 
-1. Environment variables
+1. env vars
 2. `chaos.config.json`
-3. Internal defaults
+3. defaults
 
-## Available presets
+## Available profiles
 
+- `normal`
 - `slow-3g`
-  - delayMs: 2500
-  - errorRatePercent: 2
-  - timeoutRatePercent: 1
-  - timeoutMs: 10000
-  - downloadKbps: 50
 - `airport-wifi`
-  - delayMs: 4000
-  - errorRatePercent: 8
-  - timeoutRatePercent: 5
-  - timeoutMs: 12000
-  - downloadKbps: 120
 - `unstable-api`
-  - delayMs: 1200
-  - errorRatePercent: 25
-  - timeoutRatePercent: 10
-  - timeoutMs: 8000
-  - downloadKbps: 200
 - `total-chaos`
-  - delayMs: 5000
-  - errorRatePercent: 40
-  - timeoutRatePercent: 25
-  - timeoutMs: 15000
-  - downloadKbps: 40
 - `starbucks-wifi`
-  - delayMs: 1800
-  - errorRatePercent: 6
-  - timeoutRatePercent: 4
-  - timeoutMs: 9000
-  - downloadKbps: 250
 - `colombia-4g`
-  - delayMs: 900
-  - errorRatePercent: 4
-  - timeoutRatePercent: 3
-  - timeoutMs: 8000
-  - downloadKbps: 700
 - `office-vpn`
-  - delayMs: 1400
-  - errorRatePercent: 3
-  - timeoutRatePercent: 2
-  - timeoutMs: 10000
-  - downloadKbps: 500
 - `international-latency`
-  - delayMs: 2200
-  - errorRatePercent: 2
-  - timeoutRatePercent: 1
-  - timeoutMs: 12000
-  - downloadKbps: 1000
 - `road-trip-network`
-  - delayMs: 3500
-  - errorRatePercent: 15
-  - timeoutRatePercent: 12
-  - timeoutMs: 15000
-  - downloadKbps: 150
 
-## Bandwidth throttling
+## Scenarios
 
-Profiles support `downloadKbps`.
+- `bad-mobile-network` (loop)
+- `api-degrading`
 
-When enabled, proxied HTTP responses are streamed slower to simulate low download bandwidth.
+## HTTPS support and limitations
 
-Current limitation:
+- HTTPS traffic is supported through CONNECT tunneling.
+- Chaos can apply delay, timeout, forced error, and connection drop before tunnel establishment.
+- MITM is intentionally not implemented in this phase.
+- Encrypted HTTPS payload is not inspected or rewritten.
 
-- Throttling is applied to normal proxied HTTP responses.
-- `CONNECT` HTTPS tunnels are not throttled at byte-stream level in this MVP; only delay/error/timeout rules apply there.
+## Dashboard
+
+Dashboard provides:
+
+- chaos on/off and active profile controls
+- target URL and per-route rule editor
+- custom profile editor
+- real-time logs
+- metrics overview cards
+
+## Metrics
+
+`GET /metrics` exposes:
+
+- totalRequests
+- delayedRequests
+- erroredRequests
+- timedOutRequests
+- throttledRequests
+- droppedConnections
+- averageResponseTimeMs
+- activeProfile
+- activeScenario
+- chaosEnabled
+
+## Plugins
+
+- Local plugins loaded from `plugins/`
+- Hooks: `onRequest`, `onResponse`
+- Capabilities: `forceError`, `addDelay`, `skipChaos`, `setHeader`, `dropConnection`
+- Plugin failures are isolated and logged
+
+See:
+
+- `docs/plugins.md`
+- `plugins/random-auth-failure.example.ts`
+
+## Record & Replay
+
+Control API:
+
+- `POST /record/start`
+- `POST /record/stop`
+- `POST /replay/start`
+- `POST /replay/stop`
+
+Recordings are JSON files under `recordings/`.
+
+## Control API
+
+- `GET /health`
+- `GET /state`
+- `POST /state/enabled`
+- `POST /state/profile`
+- `POST /state/rules`
+- `POST /state/target-base-url`
+- `GET /logs`
+- `GET /metrics`
+- `GET /profiles`
+- `POST /profiles/custom`
+- `GET /scenario`
+- `GET /scenarios`
+- `POST /scenario`
+- `POST /scenario/off`
+- `POST /record/start`
+- `POST /record/stop`
+- `POST /replay/start`
+- `POST /replay/stop`
+
+## Detailed docs
+
+- `docs/README.md`
+- `docs/proxy.md`
+- `docs/dashboard.md`
+- `docs/cli.md`
+- `docs/configuration.md`
+- `docs/developer-workflows.md`
+- `docs/plugins.md`
 
 ## Scripts
 
@@ -388,12 +284,15 @@ Current limitation:
 
 ## Roadmap
 
-- Per-route chaos rules
-- Traffic recording and replay
-- Team-shared chaos profiles
-- Auth + API keys for remote environments
-- More mobile/network presets
+- optional MITM HTTPS mode
+- richer scenario editor in dashboard
+- plugin marketplace ideas
+- HAR import/export helpers
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See `CONTRIBUTING.md`.
+
+## License
+
+MIT (`LICENSE`)
