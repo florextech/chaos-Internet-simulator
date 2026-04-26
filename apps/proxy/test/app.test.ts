@@ -48,6 +48,7 @@ describe('proxy app', () => {
       timeoutRatePercent: 1,
       timeoutMs: 10000,
     };
+    app.chaosState.profileRules = [];
     app.requestLogs.length = 0;
     if (!app.proxyServer.server.listening) {
       await app.proxyServer.listen({ host: '127.0.0.1', port: 0 });
@@ -128,6 +129,7 @@ describe('proxy app', () => {
         url: '/posts/1',
         statusCode: 201,
         chaosEnabled: false,
+        appliedRule: null,
       }),
     );
   });
@@ -158,6 +160,7 @@ describe('proxy app', () => {
 
   it('applies error and timeout when chaos is enabled', async () => {
     app.chaosState.enabled = true;
+    app.chaosState.profileId = 'custom-profile';
     app.chaosState.rules = {
       delayMs: 0,
       errorRatePercent: 100,
@@ -195,6 +198,7 @@ describe('proxy app', () => {
     expect(success.startsWith('HTTP/1.1 200 Connection Established')).toBe(true);
 
     app.chaosState.enabled = true;
+    app.chaosState.profileId = 'custom-profile';
     app.chaosState.rules = {
       delayMs: 0,
       errorRatePercent: 100,
@@ -239,5 +243,62 @@ describe('proxy app', () => {
     const closedPort = targetPort;
     const upstreamError = await connectThroughProxy(proxyPort, '127.0.0.1', closedPort);
     expect(upstreamError.startsWith('HTTP/1.1 502 Bad Gateway')).toBe(true);
+  });
+
+  it('applies matching profile rules per request', async () => {
+    app.chaosState.enabled = true;
+    app.chaosState.profileId = 'custom-profile';
+    app.chaosState.rules = {
+      delayMs: 0,
+      errorRatePercent: 0,
+      timeoutRatePercent: 0,
+      timeoutMs: 1,
+    };
+    app.chaosState.profileRules = [{ match: '/payments', profile: 'unstable-api' }];
+
+    randomProvider
+      .mockReturnValueOnce(0.99) // timeout false
+      .mockReturnValueOnce(0.1) // error true (25%)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.99);
+
+    const matched = await app.proxyServer.inject({ method: 'GET', url: '/payments/charge' });
+    expect(matched.statusCode).toBe(502);
+
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+    const nonMatched = await app.proxyServer.inject({ method: 'GET', url: '/orders' });
+    expect(nonMatched.statusCode).toBe(200);
+
+    const logs = await app.controlServer.inject({ method: 'GET', url: '/logs' });
+    expect(logs.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: '/payments/charge',
+          profile: 'unstable-api',
+          appliedRule: '/payments',
+        }),
+        expect.objectContaining({
+          url: '/orders',
+          appliedRule: null,
+        }),
+      ]),
+    );
+  });
+
+  it('updates rules through control endpoint', async () => {
+    const bad = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/rules',
+      payload: { rules: [{ match: '', profile: 'slow-3g' }] },
+    });
+    const good = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/rules',
+      payload: { rules: [{ match: '/posts', profile: 'slow-3g' }] },
+    });
+
+    expect(bad.statusCode).toBe(400);
+    expect(good.statusCode).toBe(200);
+    expect(app.chaosState.profileRules).toEqual([{ match: '/posts', profile: 'slow-3g' }]);
   });
 });

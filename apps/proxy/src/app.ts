@@ -2,7 +2,12 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import net from 'node:net';
 
-import { decideChaos, type ChaosRules } from '@chaos-internet-simulator/core';
+import {
+  decideChaos,
+  findMatchingProfileRule,
+  type ChaosProfileRule,
+  type ChaosRules,
+} from '@chaos-internet-simulator/core';
 import { getPresetById, PRESETS } from '@chaos-internet-simulator/presets';
 
 export type ProxyLogEntry = {
@@ -14,6 +19,7 @@ export type ProxyLogEntry = {
   errorApplied: boolean;
   timeoutApplied: boolean;
   statusCode: number;
+  appliedRule: string | null;
   timestamp: string;
 };
 
@@ -21,12 +27,14 @@ export type ProxySystemOptions = {
   targetBaseUrl?: string;
   fetchImpl?: typeof fetch;
   randomProvider?: () => number;
+  profileRules?: ChaosProfileRule[];
 };
 
 type ChaosState = {
   enabled: boolean;
   profileId: string;
   rules: ChaosRules;
+  profileRules: ChaosProfileRule[];
 };
 
 const createNoChaosDecision = () => ({
@@ -59,6 +67,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     enabled: false,
     profileId: activePreset.id,
     rules: activePreset.rules,
+    profileRules: options.profileRules ?? [],
   };
   const requestLogs: ProxyLogEntry[] = [];
 
@@ -69,9 +78,6 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     }
   };
 
-  const getDecision = () =>
-    chaosState.enabled ? decideChaos(chaosState.rules, randomProvider) : createNoChaosDecision();
-
   const proxyServer = Fastify({ logger: true });
   const controlServer = Fastify({ logger: true });
 
@@ -79,7 +85,14 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
   proxyServer.all('/*', async (request, reply) => {
     const requestUrl = request.raw.url ?? '/';
-    const decision = getDecision();
+    const targetUrl = resolveTargetUrl(requestUrl, targetBaseUrl);
+    const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
+    const activeProfileId = matchedRule?.profile ?? chaosState.profileId;
+    const activePreset = getPresetById(activeProfileId);
+    const activeRules = activePreset?.rules ?? chaosState.rules;
+    const decision = chaosState.enabled
+      ? decideChaos(activeRules, randomProvider)
+      : createNoChaosDecision();
 
     if (decision.delayApplied) {
       await sleep(decision.delayMs);
@@ -91,12 +104,13 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       pushLog({
         method: request.method,
         url: requestUrl,
-        profile: chaosState.profileId,
+        profile: activeProfileId,
         chaosEnabled: chaosState.enabled,
         delayApplied: decision.delayApplied,
         errorApplied: false,
         timeoutApplied: true,
         statusCode,
+        appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       });
       return reply.code(statusCode).send({ error: 'Simulated timeout' });
@@ -107,18 +121,18 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       pushLog({
         method: request.method,
         url: requestUrl,
-        profile: chaosState.profileId,
+        profile: activeProfileId,
         chaosEnabled: chaosState.enabled,
         delayApplied: decision.delayApplied,
         errorApplied: true,
         timeoutApplied: false,
         statusCode,
+        appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       });
       return reply.code(statusCode).send({ error: 'Simulated upstream error' });
     }
 
-    const targetUrl = resolveTargetUrl(requestUrl, targetBaseUrl);
     const response = await fetchImpl(targetUrl, {
       method: request.method,
       headers: request.headers as HeadersInit,
@@ -137,22 +151,30 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     pushLog({
       method: request.method,
       url: requestUrl,
-      profile: chaosState.profileId,
+      profile: activeProfileId,
       chaosEnabled: chaosState.enabled,
       delayApplied: decision.delayApplied,
       errorApplied: false,
       timeoutApplied: false,
       statusCode: response.status,
+      appliedRule: matchedRule?.match ?? null,
       timestamp: new Date().toISOString(),
     });
     return reply.send(Buffer.from(body));
   });
 
   proxyServer.server.on('connect', async (request, clientSocket, head) => {
-    const decision = getDecision();
     const url = request.url ?? '';
     const [host, rawPort] = url.split(':');
     const port = Number(rawPort || 443);
+    const targetUrl = `https://${url}`;
+    const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
+    const activeProfileId = matchedRule?.profile ?? chaosState.profileId;
+    const activePreset = getPresetById(activeProfileId);
+    const activeRules = activePreset?.rules ?? chaosState.rules;
+    const decision = chaosState.enabled
+      ? decideChaos(activeRules, randomProvider)
+      : createNoChaosDecision();
 
     if (!host || Number.isNaN(port)) {
       clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
@@ -169,12 +191,13 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       pushLog({
         method: 'CONNECT',
         url,
-        profile: chaosState.profileId,
+        profile: activeProfileId,
         chaosEnabled: chaosState.enabled,
         delayApplied: decision.delayApplied,
         errorApplied: false,
         timeoutApplied: true,
         statusCode: 504,
+        appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       });
       clientSocket.write('HTTP/1.1 504 Gateway Timeout\r\n\r\n');
@@ -186,12 +209,13 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       pushLog({
         method: 'CONNECT',
         url,
-        profile: chaosState.profileId,
+        profile: activeProfileId,
         chaosEnabled: chaosState.enabled,
         delayApplied: decision.delayApplied,
         errorApplied: true,
         timeoutApplied: false,
         statusCode: 502,
+        appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       });
       clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
@@ -210,12 +234,13 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       pushLog({
         method: 'CONNECT',
         url,
-        profile: chaosState.profileId,
+        profile: activeProfileId,
         chaosEnabled: chaosState.enabled,
         delayApplied: decision.delayApplied,
         errorApplied: false,
         timeoutApplied: false,
         statusCode: 200,
+        appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       });
     });
@@ -252,6 +277,27 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
     chaosState.profileId = preset.id;
     chaosState.rules = preset.rules;
+    return { ok: true, state: chaosState };
+  });
+
+  controlServer.post<{ Body: { rules?: ChaosProfileRule[] } }>('/state/rules', async (request, reply) => {
+    if (!Array.isArray(request.body?.rules)) {
+      return reply.code(400).send({ error: 'rules must be an array' });
+    }
+
+    const hasInvalidRule = request.body.rules.some(
+      (rule) =>
+        !rule ||
+        typeof rule.match !== 'string' ||
+        rule.match.trim().length === 0 ||
+        typeof rule.profile !== 'string' ||
+        rule.profile.trim().length === 0,
+    );
+    if (hasInvalidRule) {
+      return reply.code(400).send({ error: 'each rule must contain non-empty match and profile' });
+    }
+
+    chaosState.profileRules = request.body.rules;
     return { ok: true, state: chaosState };
   });
 
