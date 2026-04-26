@@ -3,6 +3,7 @@ export type ChaosRules = {
   errorRatePercent: number;
   timeoutRatePercent: number;
   timeoutMs: number;
+  downloadKbps?: number;
 };
 
 export type ChaosDecision = {
@@ -11,6 +12,8 @@ export type ChaosDecision = {
   errorApplied: boolean;
   timeoutApplied: boolean;
   timeoutMs: number;
+  throttlingApplied: boolean;
+  downloadKbps: number | null;
 };
 
 export type ChaosProfileRule = {

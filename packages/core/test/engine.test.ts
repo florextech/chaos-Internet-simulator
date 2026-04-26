@@ -33,6 +33,7 @@ describe('decideChaos', () => {
     errorRatePercent: 40,
     timeoutRatePercent: 10,
     timeoutMs: 8000,
+    downloadKbps: 64,
   };
 
   it('applies deterministic timeout and error decisions', () => {
@@ -44,6 +45,8 @@ describe('decideChaos', () => {
     expect(decision.delayApplied).toBe(true);
     expect(decision.delayMs).toBe(1500);
     expect(decision.timeoutMs).toBe(8000);
+    expect(decision.throttlingApplied).toBe(true);
+    expect(decision.downloadKbps).toBe(64);
   });
 
   it('does not apply delay when delay is disabled', () => {
@@ -55,5 +58,14 @@ describe('decideChaos', () => {
     expect(decision.timeoutApplied).toBe(false);
     expect(decision.errorApplied).toBe(false);
     expect(decision.timeoutMs).toBe(0);
+    expect(decision.throttlingApplied).toBe(true);
+    expect(decision.downloadKbps).toBe(64);
+  });
+
+  it('disables throttling when downloadKbps is not set', () => {
+    const decision = decideChaos({ ...baseRules, downloadKbps: undefined }, createRandomProvider([0, 0]));
+
+    expect(decision.throttlingApplied).toBe(false);
+    expect(decision.downloadKbps).toBe(null);
   });
 });

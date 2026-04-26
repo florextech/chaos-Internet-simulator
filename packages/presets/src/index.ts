@@ -15,6 +15,7 @@ export const PRESETS: ChaosProfile[] = [
       errorRatePercent: 2,
       timeoutRatePercent: 1,
       timeoutMs: 10000,
+      downloadKbps: 50,
     },
   },
   {
@@ -25,6 +26,7 @@ export const PRESETS: ChaosProfile[] = [
       errorRatePercent: 8,
       timeoutRatePercent: 5,
       timeoutMs: 12000,
+      downloadKbps: 120,
     },
   },
   {
@@ -35,6 +37,7 @@ export const PRESETS: ChaosProfile[] = [
       errorRatePercent: 25,
       timeoutRatePercent: 10,
       timeoutMs: 8000,
+      downloadKbps: 200,
     },
   },
   {
@@ -45,6 +48,7 @@ export const PRESETS: ChaosProfile[] = [
       errorRatePercent: 40,
       timeoutRatePercent: 25,
       timeoutMs: 15000,
+      downloadKbps: 40,
     },
   },
 ];

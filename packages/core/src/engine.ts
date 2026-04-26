@@ -15,6 +15,7 @@ export const decideChaos = (
   const timeoutApplied = shouldApplyRate(rules.timeoutRatePercent, randomProvider());
   const errorApplied = shouldApplyRate(rules.errorRatePercent, randomProvider());
   const delayApplied = rules.delayMs > 0;
+  const throttlingApplied = typeof rules.downloadKbps === 'number' && rules.downloadKbps > 0;
 
   return {
     delayApplied,
@@ -22,5 +23,7 @@ export const decideChaos = (
     errorApplied,
     timeoutApplied,
     timeoutMs: timeoutApplied ? rules.timeoutMs : 0,
+    throttlingApplied,
+    downloadKbps: throttlingApplied ? rules.downloadKbps ?? null : null,
   };
 };
