@@ -61,6 +61,61 @@ export const PRESETS: ChaosProfile[] = [
       downloadKbps: 40,
     },
   },
+  {
+    id: 'starbucks-wifi',
+    label: 'Starbucks WiFi',
+    rules: {
+      delayMs: 1800,
+      errorRatePercent: 6,
+      timeoutRatePercent: 4,
+      timeoutMs: 9000,
+      downloadKbps: 250,
+    },
+  },
+  {
+    id: 'colombia-4g',
+    label: 'Colombia 4G',
+    rules: {
+      delayMs: 900,
+      errorRatePercent: 4,
+      timeoutRatePercent: 3,
+      timeoutMs: 8000,
+      downloadKbps: 700,
+    },
+  },
+  {
+    id: 'office-vpn',
+    label: 'Office VPN',
+    rules: {
+      delayMs: 1400,
+      errorRatePercent: 3,
+      timeoutRatePercent: 2,
+      timeoutMs: 10000,
+      downloadKbps: 500,
+    },
+  },
+  {
+    id: 'international-latency',
+    label: 'International Latency',
+    rules: {
+      delayMs: 2200,
+      errorRatePercent: 2,
+      timeoutRatePercent: 1,
+      timeoutMs: 12000,
+      downloadKbps: 1000,
+    },
+  },
+  {
+    id: 'road-trip-network',
+    label: 'Road Trip Network',
+    rules: {
+      delayMs: 3500,
+      errorRatePercent: 15,
+      timeoutRatePercent: 12,
+      timeoutMs: 15000,
+      downloadKbps: 150,
+    },
+  },
 ];
 
 export const PRESETS_MAP = new Map(PRESETS.map((profile) => [profile.id, profile]));
