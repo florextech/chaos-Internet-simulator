@@ -34,6 +34,8 @@ const createFetchMock = () => {
       delayApplied: false,
       errorApplied: false,
       timeoutApplied: false,
+      throttlingApplied: false,
+      downloadKbpsApplied: null,
       statusCode: 200,
       appliedRule: null,
       timestamp: new Date().toISOString(),
@@ -158,6 +160,55 @@ describe('dashboard app', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Control API: disconnected')).toBeInTheDocument();
+    });
+  });
+
+  it('renders throttle info when log entry includes bandwidth limit', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/health')) {
+        return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+      }
+      if (url.endsWith('/state') && (!init || init.method === 'GET')) {
+        return new Response(
+          JSON.stringify({
+            enabled: true,
+            profileId: 'slow-3g',
+            rules: { delayMs: 2500, errorRatePercent: 2, timeoutRatePercent: 1, timeoutMs: 10000 },
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith('/logs')) {
+        return new Response(
+          JSON.stringify([
+            {
+              method: 'GET',
+              url: '/slow',
+              profile: 'slow-3g',
+              chaosEnabled: true,
+              delayApplied: true,
+              errorApplied: false,
+              timeoutApplied: false,
+              throttlingApplied: true,
+              downloadKbpsApplied: 50,
+              statusCode: 200,
+              appliedRule: null,
+              timestamp: new Date().toISOString(),
+            },
+          ]),
+          { status: 200 },
+        );
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('50 kbps')).toBeInTheDocument();
     });
   });
 });

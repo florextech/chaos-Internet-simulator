@@ -21,6 +21,8 @@ type RequestLog = {
   delayApplied: boolean;
   errorApplied: boolean;
   timeoutApplied: boolean;
+  throttlingApplied: boolean;
+  downloadKbpsApplied: number | null;
   statusCode: number;
   appliedRule: string | null;
   timestamp: string;
@@ -180,6 +182,7 @@ export const App = () => {
                   <th>Delay</th>
                   <th>Error</th>
                   <th>Timeout</th>
+                  <th>Throttle</th>
                   <th>Rule</th>
                   <th>Status</th>
                 </tr>
@@ -187,7 +190,7 @@ export const App = () => {
               <tbody>
                 {logs.length === 0 && (
                   <tr>
-                    <td className="empty-cell" colSpan={10}>
+                    <td className="empty-cell" colSpan={11}>
                       No requests yet.
                     </td>
                   </tr>
@@ -202,6 +205,7 @@ export const App = () => {
                     <td>{log.delayApplied ? 'yes' : 'no'}</td>
                     <td>{log.errorApplied ? 'yes' : 'no'}</td>
                     <td>{log.timeoutApplied ? 'yes' : 'no'}</td>
+                    <td>{log.throttlingApplied ? `${log.downloadKbpsApplied} kbps` : '-'}</td>
                     <td>{log.appliedRule ?? '-'}</td>
                     <td>
                       <span className={log.statusCode >= 400 ? 'status bad' : 'status good'}>
