@@ -131,6 +131,21 @@ Optional CLI env var:
 curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts
 ```
 
+More ready-to-run examples:
+
+- `examples/curl_examples.sh`
+- `examples/postman_collection.json`
+- `examples/node-axios-example.ts`
+- `examples/node-fetch-example.ts`
+- `docs/developer-workflows.md`
+
+Proxy environment variables:
+
+```bash
+export HTTP_PROXY=http://localhost:8080
+export HTTPS_PROXY=http://localhost:8080
+```
+
 ## Control API
 
 - `GET /health`
