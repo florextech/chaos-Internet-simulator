@@ -71,6 +71,30 @@ pnpm dev
 docker compose up --build
 ```
 
+## CLI usage
+
+The workspace includes a CLI app at `apps/cli` with command name `chaos-net`.
+
+Build it:
+
+```bash
+pnpm --filter @chaos-internet-simulator/cli build
+```
+
+Run from workspace:
+
+```bash
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net status
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net start
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net off
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net profile unstable-api
+pnpm --filter @chaos-internet-simulator/cli exec chaos-net logs
+```
+
+Optional CLI env var:
+
+- `CHAOS_CONTROL_API_URL` (default: `http://localhost:8081`)
+
 ## Example with curl
 
 ```bash
@@ -91,6 +115,7 @@ curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts
 - `PROXY_PORT` (default: `8080`)
 - `CONTROL_PORT` (default: `8081`)
 - `VITE_CONTROL_API_URL` (default: `http://localhost:8081`)
+- `CHAOS_CONTROL_API_URL` (default: `http://localhost:8081`)
 
 ## Available presets
 
