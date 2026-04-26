@@ -1,4 +1,7 @@
+import fs from 'node:fs';
 import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -566,5 +569,139 @@ describe('proxy app', () => {
     expect(scenarios.json().scenarios.length).toBeGreaterThan(0);
     expect(off.statusCode).toBe(200);
     expect(app.chaosState.scenario).toBeNull();
+  });
+
+  it('loads local plugins safely and applies plugin hooks', async () => {
+    const pluginDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chaos-plugins-'));
+    fs.writeFileSync(
+      path.join(pluginDir, 'plugin-auth.js'),
+      `
+      export default {
+        name: 'random-auth-failure',
+        onRequest(ctx) {
+          if (ctx.url.includes('/secure')) {
+            ctx.forceError(401);
+          }
+        },
+        onResponse(ctx) {
+          ctx.setHeader('x-plugin-mark', 'active');
+        }
+      };
+      `,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(pluginDir, 'plugin-broken.js'),
+      `
+      export default {
+        name: 'broken-plugin',
+        onRequest() {
+          throw new Error('plugin crash');
+        }
+      };
+      `,
+      'utf8',
+    );
+
+    const pluginApp = createProxySystem({
+      fetchImpl: fetchMock,
+      randomProvider,
+      pluginDirectory: pluginDir,
+    });
+    await pluginApp.proxyServer.listen({ host: '127.0.0.1', port: 0 });
+    await pluginApp.controlServer.listen({ host: '127.0.0.1', port: 0 });
+
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+    const secure = await pluginApp.proxyServer.inject({ method: 'GET', url: '/secure' });
+    const normal = await pluginApp.proxyServer.inject({ method: 'GET', url: '/public' });
+    const logs = await pluginApp.controlServer.inject({ method: 'GET', url: '/logs' });
+
+    expect(secure.statusCode).toBe(401);
+    expect(normal.statusCode).toBe(200);
+    expect(normal.headers['x-plugin-mark']).toBe('active');
+    expect(logs.json()[0].pluginErrors).toEqual(
+      expect.arrayContaining([expect.stringContaining('plugin crash')]),
+    );
+
+    await pluginApp.proxyServer.close();
+    await pluginApp.controlServer.close();
+  });
+
+  it('supports plugin request actions for http and connect', async () => {
+    const pluginDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chaos-plugins-actions-'));
+    fs.writeFileSync(
+      path.join(pluginDir, 'plugin-actions.js'),
+      `
+      export default {
+        name: 'actions',
+        onRequest(ctx) {
+          if (ctx.method === 'GET' && ctx.url === '/plugin-force') ctx.forceError(418);
+          if (ctx.method === 'GET' && ctx.url === '/plugin-drop') ctx.dropConnection();
+          if (ctx.method === 'GET' && ctx.url === '/plugin-delay') {
+            ctx.addDelay(5);
+            ctx.skipChaos();
+            ctx.setHeader('x-upstream', 'yes');
+          }
+          if (ctx.method === 'CONNECT' && ctx.url.startsWith('force.local')) ctx.forceError(429);
+          if (ctx.method === 'CONNECT' && ctx.url.startsWith('drop.local')) ctx.dropConnection();
+        },
+        onResponse(ctx) {
+          if (ctx.url === '/plugin-delay') ctx.setHeader('x-response-plugin', 'ok');
+        }
+      };
+      `,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(pluginDir, 'plugin-invalid.js'),
+      `export default { onRequest() {} };`,
+      'utf8',
+    );
+    fs.writeFileSync(path.join(pluginDir, 'plugin-syntax.js'), 'export default {', 'utf8');
+
+    const pluginApp = createProxySystem({
+      fetchImpl: fetchMock,
+      randomProvider,
+      pluginDirectory: pluginDir,
+    });
+    await pluginApp.proxyServer.listen({ host: '127.0.0.1', port: 0 });
+    await pluginApp.controlServer.listen({ host: '127.0.0.1', port: 0 });
+
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+    const forced = await pluginApp.proxyServer.inject({ method: 'GET', url: '/plugin-force' });
+    await expect(
+      pluginApp.proxyServer.inject({ method: 'GET', url: '/plugin-drop' }),
+    ).rejects.toThrow();
+    const delayed = await pluginApp.proxyServer.inject({ method: 'GET', url: '/plugin-delay' });
+    const proxyPort = (pluginApp.proxyServer.server.address() as net.AddressInfo).port;
+    const forcedConnect = await connectThroughProxy(proxyPort, 'force.local', 443);
+    const droppedConnect = await connectThroughProxy(proxyPort, 'drop.local', 443);
+    const logs = await pluginApp.controlServer.inject({ method: 'GET', url: '/logs' });
+
+    expect(forced.statusCode).toBe(418);
+    expect(delayed.statusCode).toBe(200);
+    expect(delayed.headers['x-response-plugin']).toBe('ok');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://jsonplaceholder.typicode.com/plugin-delay',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'x-upstream': 'yes' }),
+      }),
+    );
+    expect(forcedConnect.startsWith('HTTP/1.1 429 Forced Error')).toBe(true);
+    expect(droppedConnect).toBe('');
+    expect(logs.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: '/plugin-drop',
+          droppedConnectionApplied: true,
+        }),
+        expect.objectContaining({
+          pluginErrors: expect.arrayContaining([expect.stringContaining('invalid plugin contract')]),
+        }),
+      ]),
+    );
+
+    await pluginApp.proxyServer.close();
+    await pluginApp.controlServer.close();
   });
 });

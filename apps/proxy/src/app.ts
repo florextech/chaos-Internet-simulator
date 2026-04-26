@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import net from 'node:net';
+import path from 'node:path';
 
 import {
   decideChaos,
@@ -15,6 +16,7 @@ import {
   SCENARIOS,
 } from '@chaos-internet-simulator/presets';
 import { createProxyMetricsCollector } from './metrics.js';
+import { loadLocalPlugins, type PluginResponseContext } from './plugins.js';
 
 export type ProxyLogEntry = {
   method: string;
@@ -27,6 +29,7 @@ export type ProxyLogEntry = {
   throttlingApplied: boolean;
   downloadKbpsApplied: number | null;
   droppedConnectionApplied: boolean;
+  pluginErrors: string[];
   statusCode: number;
   appliedRule: string | null;
   timestamp: string;
@@ -40,6 +43,7 @@ export type ProxySystemOptions = {
   initialEnabled?: boolean;
   initialProfileId?: string;
   customProfiles?: Record<string, ChaosRules>;
+  pluginDirectory?: string;
 };
 
 type ChaosState = {
@@ -121,6 +125,7 @@ const parseConnectTarget = (rawUrl: string): { host: string; port: number } | nu
 
 export const createProxySystem = (options: ProxySystemOptions = {}) => {
   let targetBaseUrl = options.targetBaseUrl ?? 'https://jsonplaceholder.typicode.com';
+  const pluginDirectory = options.pluginDirectory ?? path.resolve(process.cwd(), 'plugins');
   const fetchImpl = options.fetchImpl ?? fetch;
   const randomProvider = options.randomProvider ?? Math.random;
   const customProfiles = options.customProfiles ?? {};
@@ -145,6 +150,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   };
   const requestLogs: ProxyLogEntry[] = [];
   const metricsCollector = createProxyMetricsCollector();
+  const loadedPluginsPromise = loadLocalPlugins(pluginDirectory);
   let scenarioTimer: NodeJS.Timeout | undefined;
 
   const pushLog = (entry: ProxyLogEntry): void => {
@@ -157,6 +163,36 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   const pushLogWithMetrics = (entry: ProxyLogEntry, startedAt: number): void => {
     pushLog(entry);
     metricsCollector.record(entry, Date.now() - startedAt);
+  };
+
+  const applyResponsePluginHooks = async (
+    method: string,
+    url: string,
+    profileId: string,
+    statusCode: number,
+    headers: Record<string, string>,
+    pluginErrors: string[],
+  ): Promise<void> => {
+    const { plugins, errors } = await loadedPluginsPromise;
+    pluginErrors.push(...errors);
+    for (const plugin of plugins) {
+      if (!plugin.onResponse) continue;
+      const context: PluginResponseContext = {
+        method,
+        url,
+        profileId,
+        statusCode,
+        setHeader: (name, value) => {
+          headers[name.toLowerCase()] = value;
+        },
+      };
+      try {
+        await plugin.onResponse(context);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        pluginErrors.push(`${plugin.name}.onResponse: ${message}`);
+      }
+    }
   };
 
   const clearScenarioTimer = (): void => {
@@ -268,12 +304,97 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
     const activeProfileId = matchedRule?.profile ?? chaosState.profileId;
     const activeRules = resolveProfileRules(activeProfileId) ?? chaosState.rules;
-    const decision = chaosState.enabled
+    const requestHeaders: Record<string, string> = {};
+    const pluginErrors: string[] = [];
+    let forcedErrorStatusCode: number | null = null;
+    let extraDelayMs = 0;
+    let skipChaos = false;
+    let dropConnection = false;
+
+    const { plugins, errors } = await loadedPluginsPromise;
+    pluginErrors.push(...errors);
+
+    for (const plugin of plugins) {
+      if (!plugin.onRequest) continue;
+      try {
+        await plugin.onRequest({
+          method: request.method,
+          url: requestUrl,
+          profileId: activeProfileId,
+          chaosEnabled: chaosState.enabled,
+          forceError: (statusCode = 502) => {
+            forcedErrorStatusCode = statusCode;
+          },
+          addDelay: (ms) => {
+            extraDelayMs += Math.max(0, Math.floor(ms));
+          },
+          skipChaos: () => {
+            skipChaos = true;
+          },
+          setHeader: (name, value) => {
+            requestHeaders[name.toLowerCase()] = value;
+          },
+          dropConnection: () => {
+            dropConnection = true;
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        pluginErrors.push(`${plugin.name}.onRequest: ${message}`);
+      }
+    }
+
+    const decision = chaosState.enabled && !skipChaos
       ? decideChaos(activeRules, randomProvider)
       : createNoChaosDecision();
 
     if (decision.delayApplied) {
       await sleep(decision.delayMs);
+    }
+    if (extraDelayMs > 0) {
+      await sleep(extraDelayMs);
+    }
+
+    if (dropConnection) {
+      pushLogWithMetrics({
+        method: request.method,
+        url: requestUrl,
+        profile: activeProfileId,
+        chaosEnabled: chaosState.enabled,
+        delayApplied: decision.delayApplied || extraDelayMs > 0,
+        errorApplied: false,
+        timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
+        droppedConnectionApplied: true,
+        pluginErrors,
+        statusCode: 0,
+        appliedRule: matchedRule?.match ?? null,
+        timestamp: new Date().toISOString(),
+      }, startedAt);
+      reply.hijack();
+      reply.raw.destroy();
+      return;
+    }
+
+    if (forcedErrorStatusCode) {
+      pushLogWithMetrics({
+        method: request.method,
+        url: requestUrl,
+        profile: activeProfileId,
+        chaosEnabled: chaosState.enabled,
+        delayApplied: decision.delayApplied || extraDelayMs > 0,
+        errorApplied: true,
+        timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
+        droppedConnectionApplied: false,
+        pluginErrors,
+        statusCode: forcedErrorStatusCode,
+        appliedRule: matchedRule?.match ?? null,
+        timestamp: new Date().toISOString(),
+      }, startedAt);
+      return reply.code(forcedErrorStatusCode).send({ error: 'Forced by plugin' });
     }
 
     if (decision.timeoutApplied) {
@@ -290,6 +411,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         throttlingApplied: false,
         downloadKbpsApplied: null,
         droppedConnectionApplied: false,
+        pluginErrors,
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -310,6 +432,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         throttlingApplied: false,
         downloadKbpsApplied: null,
         droppedConnectionApplied: false,
+        pluginErrors,
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -319,7 +442,10 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
     const response = await fetchImpl(targetUrl, {
       method: request.method,
-      headers: request.headers as HeadersInit,
+      headers: {
+        ...(request.headers as HeadersInit),
+        ...requestHeaders,
+      },
       body:
         request.method === 'GET' || request.method === 'HEAD'
           ? undefined
@@ -339,10 +465,21 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       throttlingApplied: decision.throttlingApplied,
       downloadKbpsApplied: decision.downloadKbps,
       droppedConnectionApplied: false,
+      pluginErrors,
       statusCode: response.status,
       appliedRule: matchedRule?.match ?? null,
       timestamp: new Date().toISOString(),
     }, startedAt);
+
+    const responsePluginHeaders: Record<string, string> = {};
+    await applyResponsePluginHooks(
+      request.method,
+      requestUrl,
+      activeProfileId,
+      response.status,
+      responsePluginHeaders,
+      pluginErrors,
+    );
 
     if (decision.throttlingApplied && decision.downloadKbps) {
       await sendThrottledResponse(reply, response, body, decision.downloadKbps);
@@ -353,6 +490,9 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     response.headers.forEach((value, key) => {
       reply.header(key, value);
     });
+    for (const [name, value] of Object.entries(responsePluginHeaders)) {
+      reply.header(name, value);
+    }
     return reply.send(body);
   });
 
@@ -364,7 +504,44 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
     const activeProfileId = matchedRule?.profile ?? chaosState.profileId;
     const activeRules = resolveProfileRules(activeProfileId) ?? chaosState.rules;
-    const decision = chaosState.enabled
+    const pluginErrors: string[] = [];
+    let forcedErrorStatusCode: number | null = null;
+    let extraDelayMs = 0;
+    let skipChaos = false;
+    let dropConnection = false;
+
+    const { plugins, errors } = await loadedPluginsPromise;
+    pluginErrors.push(...errors);
+
+    for (const plugin of plugins) {
+      if (!plugin.onRequest) continue;
+      try {
+        await plugin.onRequest({
+          method: 'CONNECT',
+          url,
+          profileId: activeProfileId,
+          chaosEnabled: chaosState.enabled,
+          forceError: (statusCode = 502) => {
+            forcedErrorStatusCode = statusCode;
+          },
+          addDelay: (ms) => {
+            extraDelayMs += Math.max(0, Math.floor(ms));
+          },
+          skipChaos: () => {
+            skipChaos = true;
+          },
+          setHeader: () => {},
+          dropConnection: () => {
+            dropConnection = true;
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        pluginErrors.push(`${plugin.name}.onRequest: ${message}`);
+      }
+    }
+
+    const decision = chaosState.enabled && !skipChaos
       ? decideChaos(activeRules, randomProvider)
       : createNoChaosDecision();
 
@@ -380,6 +557,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         throttlingApplied: false,
         downloadKbpsApplied: null,
         droppedConnectionApplied: false,
+        pluginErrors,
         statusCode: 400,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -391,6 +569,52 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
     if (decision.delayApplied) {
       await sleep(decision.delayMs);
+    }
+    if (extraDelayMs > 0) {
+      await sleep(extraDelayMs);
+    }
+
+    if (dropConnection) {
+      pushLogWithMetrics({
+        method: 'CONNECT',
+        url,
+        profile: activeProfileId,
+        chaosEnabled: chaosState.enabled,
+        delayApplied: decision.delayApplied || extraDelayMs > 0,
+        errorApplied: false,
+        timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
+        droppedConnectionApplied: true,
+        pluginErrors,
+        statusCode: 0,
+        appliedRule: matchedRule?.match ?? null,
+        timestamp: new Date().toISOString(),
+      }, startedAt);
+      clientSocket.destroy();
+      return;
+    }
+
+    if (forcedErrorStatusCode) {
+      pushLogWithMetrics({
+        method: 'CONNECT',
+        url,
+        profile: activeProfileId,
+        chaosEnabled: chaosState.enabled,
+        delayApplied: decision.delayApplied || extraDelayMs > 0,
+        errorApplied: true,
+        timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
+        droppedConnectionApplied: false,
+        pluginErrors,
+        statusCode: forcedErrorStatusCode,
+        appliedRule: matchedRule?.match ?? null,
+        timestamp: new Date().toISOString(),
+      }, startedAt);
+      clientSocket.write(`HTTP/1.1 ${forcedErrorStatusCode} Forced Error\r\n\r\n`);
+      clientSocket.destroy();
+      return;
     }
 
     if (decision.timeoutApplied) {
@@ -406,6 +630,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         throttlingApplied: false,
         downloadKbpsApplied: null,
         droppedConnectionApplied: false,
+        pluginErrors,
         statusCode: 504,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -428,6 +653,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         throttlingApplied: false,
         downloadKbpsApplied: null,
         droppedConnectionApplied: true,
+        pluginErrors,
         statusCode: 0,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -455,6 +681,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         throttlingApplied: false,
         downloadKbpsApplied: null,
         droppedConnectionApplied: false,
+        pluginErrors,
         statusCode: 200,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
@@ -473,6 +700,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         throttlingApplied: false,
         downloadKbpsApplied: null,
         droppedConnectionApplied: true,
+        pluginErrors,
         statusCode: 0,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
