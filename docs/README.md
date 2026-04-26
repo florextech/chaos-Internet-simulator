@@ -10,6 +10,7 @@ This folder contains detailed guides for each app and major workflow in Chaos In
 - [Configuration Guide](./configuration.md)
 - [Developer Workflows](./developer-workflows.md)
 - [Plugin System](./plugins.md)
+- [UI System Migration](./ui-system.md)
 
 ## Suggested Reading Path
 

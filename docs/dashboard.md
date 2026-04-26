@@ -20,6 +20,21 @@ pnpm --filter @chaos-internet-simulator/dashboard dev
 
 ## Main Features
 
+## UI Stack
+
+Dashboard UI uses `@florexlabs/ui` primitives for consistency:
+
+- `Button`
+- `Card`
+- `Badge`
+- `Input`
+- `Container`
+- `Section`
+- `Spinner`
+- `EmptyState`
+
+See [UI System Migration](./ui-system.md) for migration scope and remaining local UI pieces.
+
 ## Chaos controls
 
 - View control API connection status

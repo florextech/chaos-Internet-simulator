@@ -205,6 +205,32 @@ Dashboard provides:
 - real-time logs
 - metrics overview cards
 
+## UI Library (`@florexlabs/ui`)
+
+Dashboard now uses `@florexlabs/ui` as the reusable UI base.
+
+Migrated components:
+
+- `Button`
+- `Card`
+- `Badge`
+- `Input`
+- `Container`
+- `Section`
+- `Spinner`
+- `EmptyState`
+
+Still local (by design):
+
+- native select controls in profile/rules forms (simple keyboard-native behavior)
+- request log table structure and density styles (proxy-specific data layout)
+
+Basic usage example:
+
+```tsx
+import { Badge, Button, Card, Input } from '@florexlabs/ui';
+```
+
 ## Metrics
 
 `GET /metrics` exposes:
@@ -273,6 +299,7 @@ Recordings are JSON files under `recordings/`.
 - `docs/configuration.md`
 - `docs/developer-workflows.md`
 - `docs/plugins.md`
+- `docs/ui-system.md`
 
 ## Scripts
 
