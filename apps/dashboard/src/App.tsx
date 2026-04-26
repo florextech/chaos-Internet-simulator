@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge, Button, Card, Input } from '@florexlabs/ui';
+import { Badge, Button, Card, Container, EmptyState, Input, Section, Spinner } from '@florexlabs/ui';
 
 const CONTROL_API = import.meta.env.VITE_CONTROL_API_URL ?? 'http://localhost:8081';
 
@@ -251,16 +251,20 @@ export const App = () => {
   };
 
   return (
-    <main className="layout">
-      <section className="shell">
+    <main className="min-h-screen py-6">
+      <Section className="py-0">
+        <Container className="max-w-[1080px]">
         <header className="header">
           <div>
             <p className="eyebrow">Florex Labs</p>
             <h1>Chaos Internet Simulator</h1>
           </div>
-          <Badge tone={healthy ? 'success' : 'danger'}>
-            Control API: {healthy ? 'connected' : 'disconnected'}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge tone={healthy ? 'success' : 'danger'}>
+              Control API: {healthy ? 'connected' : 'disconnected'}
+            </Badge>
+            {loading && <Spinner className="size-4 text-(--brand-700)" />}
+          </div>
         </header>
 
         {metrics && (
@@ -504,55 +508,57 @@ export const App = () => {
             <h2>Recent Requests</h2>
             <Badge tone="brand">{logs.length} rows</Badge>
           </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Method</th>
-                  <th>URL</th>
-                  <th>Profile</th>
-                  <th>Chaos</th>
-                  <th>Delay</th>
-                  <th>Error</th>
-                  <th>Timeout</th>
-                  <th>Throttle</th>
-                  <th>Rule</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.length === 0 && (
+          {logs.length === 0 ? (
+            <EmptyState
+              title="No requests yet."
+              description="Send traffic through the proxy to inspect live request logs."
+              className="py-10"
+            />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
                   <tr>
-                    <td className="empty-cell" colSpan={11}>
-                      No requests yet.
-                    </td>
+                    <th>Time</th>
+                    <th>Method</th>
+                    <th>URL</th>
+                    <th>Profile</th>
+                    <th>Chaos</th>
+                    <th>Delay</th>
+                    <th>Error</th>
+                    <th>Timeout</th>
+                    <th>Throttle</th>
+                    <th>Rule</th>
+                    <th>Status</th>
                   </tr>
-                )}
-                {logs.map((log) => (
-                  <tr key={`${log.timestamp}-${log.method}-${log.url}`}>
-                    <td>{new Date(log.timestamp).toLocaleTimeString()}</td>
-                    <td>{log.method}</td>
-                    <td className="url-cell">{log.url}</td>
-                    <td>{log.profile}</td>
-                    <td>{log.chaosEnabled ? 'on' : 'off'}</td>
-                    <td>{log.delayApplied ? 'yes' : 'no'}</td>
-                    <td>{log.errorApplied ? 'yes' : 'no'}</td>
-                    <td>{log.timeoutApplied ? 'yes' : 'no'}</td>
-                    <td>{log.throttlingApplied ? `${log.downloadKbpsApplied} kbps` : '-'}</td>
-                    <td>{log.appliedRule ?? '-'}</td>
-                    <td>
-                      <Badge tone={log.statusCode >= 400 ? 'danger' : 'success'}>
-                        {log.statusCode}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={`${log.timestamp}-${log.method}-${log.url}`}>
+                      <td>{new Date(log.timestamp).toLocaleTimeString()}</td>
+                      <td>{log.method}</td>
+                      <td className="url-cell">{log.url}</td>
+                      <td>{log.profile}</td>
+                      <td>{log.chaosEnabled ? 'on' : 'off'}</td>
+                      <td>{log.delayApplied ? 'yes' : 'no'}</td>
+                      <td>{log.errorApplied ? 'yes' : 'no'}</td>
+                      <td>{log.timeoutApplied ? 'yes' : 'no'}</td>
+                      <td>{log.throttlingApplied ? `${log.downloadKbpsApplied} kbps` : '-'}</td>
+                      <td>{log.appliedRule ?? '-'}</td>
+                      <td>
+                        <Badge tone={log.statusCode >= 400 ? 'danger' : 'success'}>
+                          {log.statusCode}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
-      </section>
+        </Container>
+      </Section>
     </main>
   );
 };
