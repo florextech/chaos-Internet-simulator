@@ -37,6 +37,18 @@ pnpm --filter @chaos-internet-simulator/dashboard dev
 
 - Recent request table with status, profile, applied rule and throttling info
 
+## Metrics overview
+
+Dashboard includes real-time cards for:
+
+- total requests
+- average response time
+- delayed/errored/timed out requests
+- throttled requests
+- dropped HTTPS tunnels
+- active profile and scenario
+- chaos enabled status
+
 ## Recommended Workflow
 
 1. Open dashboard

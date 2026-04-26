@@ -140,6 +140,7 @@ curl -x http://localhost:8080 https://jsonplaceholder.typicode.com/posts
 - `POST /state/rules`
 - `POST /state/target-base-url`
 - `GET /logs`
+- `GET /metrics`
 - `GET /profiles`
 - `POST /profiles/custom`
 - `GET /scenario`

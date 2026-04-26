@@ -77,6 +77,7 @@ pnpm --filter @chaos-internet-simulator/proxy dev
 ## Observability and logs
 
 - `GET /logs`
+- `GET /metrics`
 
 ## Scenarios
 
@@ -101,6 +102,21 @@ Each log row includes:
 - appliedRule
 - statusCode
 - timestamp
+
+## Metrics
+
+`GET /metrics` returns:
+
+- totalRequests
+- delayedRequests
+- erroredRequests
+- timedOutRequests
+- throttledRequests
+- droppedConnections
+- averageResponseTimeMs
+- activeProfile
+- activeScenario
+- chaosEnabled
 
 ## URL Matching Rules
 
