@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import net from 'node:net';
 
 import { decideChaos } from '@chaos-internet-simulator/core';
 import { getPresetById, PRESETS } from '@chaos-internet-simulator/presets';
@@ -33,6 +34,17 @@ const pushLog = (entry: (typeof requestLogs)[number]): void => {
   }
 };
 
+const getDecision = () =>
+  chaosState.enabled
+    ? decideChaos(chaosState.rules)
+    : {
+        delayApplied: false,
+        delayMs: 0,
+        errorApplied: false,
+        timeoutApplied: false,
+        timeoutMs: 0,
+      };
+
 const sleep = async (ms: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -52,15 +64,7 @@ proxyServer.get('/health', async () => ({ status: 'ok', service: 'proxy' }));
 
 proxyServer.all('/*', async (request, reply) => {
   const requestUrl = request.raw.url ?? '/';
-  const decision = chaosState.enabled
-    ? decideChaos(chaosState.rules)
-    : {
-        delayApplied: false,
-        delayMs: 0,
-        errorApplied: false,
-        timeoutApplied: false,
-        timeoutMs: 0,
-      };
+  const decision = getDecision();
 
   if (decision.delayApplied) {
     await sleep(decision.delayMs);
@@ -126,6 +130,84 @@ proxyServer.all('/*', async (request, reply) => {
     timestamp: new Date().toISOString(),
   });
   return reply.send(Buffer.from(body));
+});
+
+proxyServer.server.on('connect', async (request, clientSocket, head) => {
+  const decision = getDecision();
+  const url = request.url ?? '';
+  const [host, rawPort] = url.split(':');
+  const port = Number(rawPort || 443);
+
+  if (!host || Number.isNaN(port)) {
+    clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+    clientSocket.destroy();
+    return;
+  }
+
+  if (decision.delayApplied) {
+    await sleep(decision.delayMs);
+  }
+
+  if (decision.timeoutApplied) {
+    await sleep(decision.timeoutMs);
+    pushLog({
+      method: 'CONNECT',
+      url,
+      profile: chaosState.profileId,
+      chaosEnabled: chaosState.enabled,
+      delayApplied: decision.delayApplied,
+      errorApplied: false,
+      timeoutApplied: true,
+      statusCode: 504,
+      timestamp: new Date().toISOString(),
+    });
+    clientSocket.write('HTTP/1.1 504 Gateway Timeout\r\n\r\n');
+    clientSocket.destroy();
+    return;
+  }
+
+  if (decision.errorApplied) {
+    pushLog({
+      method: 'CONNECT',
+      url,
+      profile: chaosState.profileId,
+      chaosEnabled: chaosState.enabled,
+      delayApplied: decision.delayApplied,
+      errorApplied: true,
+      timeoutApplied: false,
+      statusCode: 502,
+      timestamp: new Date().toISOString(),
+    });
+    clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+    clientSocket.destroy();
+    return;
+  }
+
+  const upstreamSocket = net.connect(port, host, () => {
+    clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+    if (head.length) {
+      upstreamSocket.write(head);
+    }
+    upstreamSocket.pipe(clientSocket);
+    clientSocket.pipe(upstreamSocket);
+
+    pushLog({
+      method: 'CONNECT',
+      url,
+      profile: chaosState.profileId,
+      chaosEnabled: chaosState.enabled,
+      delayApplied: decision.delayApplied,
+      errorApplied: false,
+      timeoutApplied: false,
+      statusCode: 200,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  upstreamSocket.on('error', () => {
+    clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+    clientSocket.destroy();
+  });
 });
 
 controlServer.register(cors, { origin: true });
