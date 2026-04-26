@@ -14,6 +14,7 @@ import {
   PRESETS,
   SCENARIOS,
 } from '@chaos-internet-simulator/presets';
+import { createProxyMetricsCollector } from './metrics.js';
 
 export type ProxyLogEntry = {
   method: string;
@@ -143,6 +144,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     scenario: null,
   };
   const requestLogs: ProxyLogEntry[] = [];
+  const metricsCollector = createProxyMetricsCollector();
   let scenarioTimer: NodeJS.Timeout | undefined;
 
   const pushLog = (entry: ProxyLogEntry): void => {
@@ -150,6 +152,11 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     if (requestLogs.length > 200) {
       requestLogs.pop();
     }
+  };
+
+  const pushLogWithMetrics = (entry: ProxyLogEntry, startedAt: number): void => {
+    pushLog(entry);
+    metricsCollector.record(entry, Date.now() - startedAt);
   };
 
   const clearScenarioTimer = (): void => {
@@ -255,6 +262,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   proxyServer.get('/health', async () => ({ status: 'ok', service: 'proxy' }));
 
   proxyServer.all('/*', async (request, reply) => {
+    const startedAt = Date.now();
     const requestUrl = request.raw.url ?? '/';
     const targetUrl = resolveTargetUrl(requestUrl, targetBaseUrl);
     const matchedRule = findMatchingProfileRule(targetUrl, chaosState.profileRules);
@@ -271,7 +279,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     if (decision.timeoutApplied) {
       await sleep(decision.timeoutMs);
       const statusCode = 504;
-      pushLog({
+      pushLogWithMetrics({
         method: request.method,
         url: requestUrl,
         profile: activeProfileId,
@@ -285,13 +293,13 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
-      });
+      }, startedAt);
       return reply.code(statusCode).send({ error: 'Simulated timeout' });
     }
 
     if (decision.errorApplied) {
       const statusCode = 502;
-      pushLog({
+      pushLogWithMetrics({
         method: request.method,
         url: requestUrl,
         profile: activeProfileId,
@@ -305,7 +313,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         statusCode,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
-      });
+      }, startedAt);
       return reply.code(statusCode).send({ error: 'Simulated upstream error' });
     }
 
@@ -320,7 +328,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
     const body = Buffer.from(await response.arrayBuffer());
 
-    pushLog({
+    pushLogWithMetrics({
       method: request.method,
       url: requestUrl,
       profile: activeProfileId,
@@ -334,7 +342,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       statusCode: response.status,
       appliedRule: matchedRule?.match ?? null,
       timestamp: new Date().toISOString(),
-    });
+    }, startedAt);
 
     if (decision.throttlingApplied && decision.downloadKbps) {
       await sendThrottledResponse(reply, response, body, decision.downloadKbps);
@@ -349,6 +357,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   });
 
   proxyServer.server.on('connect', async (request, clientSocket, head) => {
+    const startedAt = Date.now();
     const url = request.url ?? '';
     const target = parseConnectTarget(url);
     const targetUrl = `https://${url}`;
@@ -360,6 +369,21 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       : createNoChaosDecision();
 
     if (!target) {
+      pushLogWithMetrics({
+        method: 'CONNECT',
+        url,
+        profile: activeProfileId,
+        chaosEnabled: chaosState.enabled,
+        delayApplied: false,
+        errorApplied: false,
+        timeoutApplied: false,
+        throttlingApplied: false,
+        downloadKbpsApplied: null,
+        droppedConnectionApplied: false,
+        statusCode: 400,
+        appliedRule: matchedRule?.match ?? null,
+        timestamp: new Date().toISOString(),
+      }, startedAt);
       clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
       clientSocket.destroy();
       return;
@@ -371,7 +395,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
     if (decision.timeoutApplied) {
       await sleep(decision.timeoutMs);
-      pushLog({
+      pushLogWithMetrics({
         method: 'CONNECT',
         url,
         profile: activeProfileId,
@@ -385,7 +409,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         statusCode: 504,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
-      });
+      }, startedAt);
       clientSocket.write('HTTP/1.1 504 Gateway Timeout\r\n\r\n');
       clientSocket.destroy();
       return;
@@ -393,7 +417,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
     if (decision.errorApplied) {
       // HTTPS drop simulation: close tunnel connection before establishing upstream.
-      pushLog({
+      pushLogWithMetrics({
         method: 'CONNECT',
         url,
         profile: activeProfileId,
@@ -407,7 +431,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         statusCode: 0,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
-      });
+      }, startedAt);
       clientSocket.destroy();
       return;
     }
@@ -420,7 +444,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       upstreamSocket.pipe(clientSocket);
       clientSocket.pipe(upstreamSocket);
 
-      pushLog({
+      pushLogWithMetrics({
         method: 'CONNECT',
         url,
         profile: activeProfileId,
@@ -434,11 +458,11 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         statusCode: 200,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
-      });
+      }, startedAt);
     });
 
     upstreamSocket.on('error', () => {
-      pushLog({
+      pushLogWithMetrics({
         method: 'CONNECT',
         url,
         profile: activeProfileId,
@@ -452,7 +476,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         statusCode: 0,
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
-      });
+      }, startedAt);
       clientSocket.destroy();
     });
   });
@@ -564,6 +588,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   );
 
   controlServer.get('/logs', async () => requestLogs);
+  controlServer.get('/metrics', async () => metricsCollector.snapshot(chaosState));
   controlServer.get('/scenario', async () => ({ activeScenario: chaosState.scenario }));
   controlServer.get('/scenarios', async () => ({ scenarios: SCENARIOS }));
 

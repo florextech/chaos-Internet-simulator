@@ -363,6 +363,34 @@ describe('proxy app', () => {
     expect(app.chaosState.profileRules).toEqual([{ match: '/posts', profile: 'slow-3g' }]);
   });
 
+  it('exposes aggregated metrics', async () => {
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+
+    await app.proxyServer.inject({ method: 'GET', url: '/normal' });
+
+    app.chaosState.enabled = true;
+    app.chaosState.profileId = 'custom-profile';
+    app.chaosState.rules = {
+      delayMs: 0,
+      errorRatePercent: 100,
+      timeoutRatePercent: 0,
+      timeoutMs: 1,
+    };
+    randomProvider.mockReturnValue(0);
+    await app.proxyServer.inject({ method: 'GET', url: '/error' });
+
+    const metrics = await app.controlServer.inject({ method: 'GET', url: '/metrics' });
+    expect(metrics.statusCode).toBe(200);
+    expect(metrics.json()).toEqual(
+      expect.objectContaining({
+        totalRequests: 2,
+        erroredRequests: 1,
+        chaosEnabled: true,
+        activeProfile: app.chaosState.profileId,
+      }),
+    );
+  });
+
   it('updates target base url through control endpoint', async () => {
     fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
 
