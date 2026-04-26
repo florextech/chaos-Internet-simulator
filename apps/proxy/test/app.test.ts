@@ -704,4 +704,56 @@ describe('proxy app', () => {
     await pluginApp.proxyServer.close();
     await pluginApp.controlServer.close();
   });
+
+  it('records and replays http traffic from file storage', async () => {
+    const recordingsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chaos-recordings-'));
+    const recordApp = createProxySystem({
+      fetchImpl: fetchMock,
+      randomProvider,
+      recordingsDirectory: recordingsDir,
+    });
+    await recordApp.proxyServer.listen({ host: '127.0.0.1', port: 0 });
+    await recordApp.controlServer.listen({ host: '127.0.0.1', port: 0 });
+
+    const start = await recordApp.controlServer.inject({
+      method: 'POST',
+      url: '/record/start',
+      payload: { fileName: 'sample.json' },
+    });
+    expect(start.statusCode).toBe(200);
+
+    fetchMock.mockResolvedValue(new Response('from-live', { status: 200, headers: { 'x-src': 'live' } }));
+    const live = await recordApp.proxyServer.inject({ method: 'GET', url: '/posts/record-me' });
+    expect(live.statusCode).toBe(200);
+    expect(live.body).toBe('from-live');
+
+    const stop = await recordApp.controlServer.inject({
+      method: 'POST',
+      url: '/record/stop',
+    });
+    expect(stop.statusCode).toBe(200);
+    expect(stop.json().entriesWritten).toBeGreaterThan(0);
+    expect(fs.existsSync(path.join(recordingsDir, 'sample.json'))).toBe(true);
+
+    fetchMock.mockResolvedValue(new Response('from-upstream-new', { status: 200 }));
+    const replayStart = await recordApp.controlServer.inject({
+      method: 'POST',
+      url: '/replay/start',
+      payload: { recordingFile: 'sample.json' },
+    });
+    expect(replayStart.statusCode).toBe(200);
+
+    const replayed = await recordApp.proxyServer.inject({ method: 'GET', url: '/posts/record-me' });
+    expect(replayed.statusCode).toBe(200);
+    expect(replayed.body).toBe('from-live');
+
+    const replayStop = await recordApp.controlServer.inject({
+      method: 'POST',
+      url: '/replay/stop',
+    });
+    expect(replayStop.statusCode).toBe(200);
+
+    await recordApp.proxyServer.close();
+    await recordApp.controlServer.close();
+  });
 });

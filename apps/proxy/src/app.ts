@@ -17,6 +17,7 @@ import {
 } from '@chaos-internet-simulator/presets';
 import { createProxyMetricsCollector } from './metrics.js';
 import { loadLocalPlugins, type PluginResponseContext } from './plugins.js';
+import { createRecordingManager } from './recording.js';
 
 export type ProxyLogEntry = {
   method: string;
@@ -44,6 +45,7 @@ export type ProxySystemOptions = {
   initialProfileId?: string;
   customProfiles?: Record<string, ChaosRules>;
   pluginDirectory?: string;
+  recordingsDirectory?: string;
 };
 
 type ChaosState = {
@@ -60,6 +62,14 @@ type ChaosState = {
     currentProfile: string;
     stepEndsAt: string;
   } | null;
+  recording: {
+    enabled: boolean;
+    filePath: string | null;
+  };
+  replay: {
+    enabled: boolean;
+    filePath: string | null;
+  };
 };
 
 const createNoChaosDecision = () => ({
@@ -126,6 +136,7 @@ const parseConnectTarget = (rawUrl: string): { host: string; port: number } | nu
 export const createProxySystem = (options: ProxySystemOptions = {}) => {
   let targetBaseUrl = options.targetBaseUrl ?? 'https://jsonplaceholder.typicode.com';
   const pluginDirectory = options.pluginDirectory ?? path.resolve(process.cwd(), 'plugins');
+  const recordingsDirectory = options.recordingsDirectory ?? path.resolve(process.cwd(), 'recordings');
   const fetchImpl = options.fetchImpl ?? fetch;
   const randomProvider = options.randomProvider ?? Math.random;
   const customProfiles = options.customProfiles ?? {};
@@ -147,10 +158,19 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     profileRules: options.profileRules ?? [],
     customProfiles,
     scenario: null,
+    recording: {
+      enabled: false,
+      filePath: null,
+    },
+    replay: {
+      enabled: false,
+      filePath: null,
+    },
   };
   const requestLogs: ProxyLogEntry[] = [];
   const metricsCollector = createProxyMetricsCollector();
   const loadedPluginsPromise = loadLocalPlugins(pluginDirectory);
+  const recordingManager = createRecordingManager(recordingsDirectory);
   let scenarioTimer: NodeJS.Timeout | undefined;
 
   const pushLog = (entry: ProxyLogEntry): void => {
@@ -378,6 +398,15 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     }
 
     if (forcedErrorStatusCode) {
+      const forcedBody = { error: 'Forced by plugin' };
+      recordingManager.appendRecord({
+        method: request.method,
+        url: requestUrl,
+        statusCode: forcedErrorStatusCode,
+        headers: { 'content-type': 'application/json' },
+        bodyBase64: Buffer.from(JSON.stringify(forcedBody)).toString('base64'),
+        timestamp: new Date().toISOString(),
+      });
       pushLogWithMetrics({
         method: request.method,
         url: requestUrl,
@@ -394,12 +423,21 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       }, startedAt);
-      return reply.code(forcedErrorStatusCode).send({ error: 'Forced by plugin' });
+      return reply.code(forcedErrorStatusCode).send(forcedBody);
     }
 
     if (decision.timeoutApplied) {
       await sleep(decision.timeoutMs);
       const statusCode = 504;
+      const timeoutBody = { error: 'Simulated timeout' };
+      recordingManager.appendRecord({
+        method: request.method,
+        url: requestUrl,
+        statusCode,
+        headers: { 'content-type': 'application/json' },
+        bodyBase64: Buffer.from(JSON.stringify(timeoutBody)).toString('base64'),
+        timestamp: new Date().toISOString(),
+      });
       pushLogWithMetrics({
         method: request.method,
         url: requestUrl,
@@ -416,11 +454,20 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       }, startedAt);
-      return reply.code(statusCode).send({ error: 'Simulated timeout' });
+      return reply.code(statusCode).send(timeoutBody);
     }
 
     if (decision.errorApplied) {
       const statusCode = 502;
+      const errorBody = { error: 'Simulated upstream error' };
+      recordingManager.appendRecord({
+        method: request.method,
+        url: requestUrl,
+        statusCode,
+        headers: { 'content-type': 'application/json' },
+        bodyBase64: Buffer.from(JSON.stringify(errorBody)).toString('base64'),
+        timestamp: new Date().toISOString(),
+      });
       pushLogWithMetrics({
         method: request.method,
         url: requestUrl,
@@ -437,22 +484,40 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
         appliedRule: matchedRule?.match ?? null,
         timestamp: new Date().toISOString(),
       }, startedAt);
-      return reply.code(statusCode).send({ error: 'Simulated upstream error' });
+      return reply.code(statusCode).send(errorBody);
     }
 
-    const response = await fetchImpl(targetUrl, {
-      method: request.method,
-      headers: {
-        ...(request.headers as HeadersInit),
-        ...requestHeaders,
-      },
-      body:
-        request.method === 'GET' || request.method === 'HEAD'
-          ? undefined
-          : (request.body as BodyInit | undefined),
-    });
+    const replayEntry = recordingManager.nextReplayEntry(request.method, requestUrl);
+    const response = replayEntry
+      ? new Response(Buffer.from(replayEntry.bodyBase64, 'base64'), {
+          status: replayEntry.statusCode,
+          headers: replayEntry.headers,
+        })
+      : await fetchImpl(targetUrl, {
+          method: request.method,
+          headers: {
+            ...(request.headers as HeadersInit),
+            ...requestHeaders,
+          },
+          body:
+            request.method === 'GET' || request.method === 'HEAD'
+              ? undefined
+              : (request.body as BodyInit | undefined),
+        });
 
     const body = Buffer.from(await response.arrayBuffer());
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    recordingManager.appendRecord({
+      method: request.method,
+      url: requestUrl,
+      statusCode: response.status,
+      headers: responseHeaders,
+      bodyBase64: body.toString('base64'),
+      timestamp: new Date().toISOString(),
+    });
 
     pushLogWithMetrics({
       method: request.method,
@@ -837,6 +902,40 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   controlServer.post('/scenario/off', async () => {
     stopScenarioRuntime();
     return { ok: true, state: chaosState };
+  });
+
+  controlServer.post<{ Body: { fileName?: string } }>('/record/start', async (request) => {
+    const started = recordingManager.startRecording(request.body?.fileName);
+    chaosState.recording = recordingManager.state().recording;
+    return { ok: true, recording: chaosState.recording, filePath: started.filePath };
+  });
+
+  controlServer.post('/record/stop', async () => {
+    const result = recordingManager.stopRecording();
+    chaosState.recording = recordingManager.state().recording;
+    return { ok: true, recording: chaosState.recording, ...result };
+  });
+
+  controlServer.post<{ Body: { recordingFile?: string } }>('/replay/start', async (request, reply) => {
+    const recordingFile = request.body?.recordingFile;
+    if (!recordingFile) {
+      return reply.code(400).send({ error: 'recordingFile is required' });
+    }
+
+    try {
+      const started = recordingManager.startReplay(recordingFile);
+      chaosState.replay = recordingManager.state().replay;
+      return { ok: true, replay: chaosState.replay, ...started };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return reply.code(400).send({ error: message });
+    }
+  });
+
+  controlServer.post('/replay/stop', async () => {
+    const result = recordingManager.stopReplay();
+    chaosState.replay = recordingManager.state().replay;
+    return { ok: true, replay: chaosState.replay, ...result };
   });
 
   return {
