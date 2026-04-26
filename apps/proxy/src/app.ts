@@ -28,6 +28,8 @@ export type ProxySystemOptions = {
   fetchImpl?: typeof fetch;
   randomProvider?: () => number;
   profileRules?: ChaosProfileRule[];
+  initialEnabled?: boolean;
+  initialProfileId?: string;
 };
 
 type ChaosState = {
@@ -63,10 +65,12 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
   const randomProvider = options.randomProvider ?? Math.random;
 
   const activePreset = PRESETS[0];
+  const initialProfileId = options.initialProfileId ?? activePreset.id;
+  const initialPreset = getPresetById(initialProfileId) ?? activePreset;
   const chaosState: ChaosState = {
-    enabled: false,
-    profileId: activePreset.id,
-    rules: activePreset.rules,
+    enabled: options.initialEnabled ?? false,
+    profileId: initialPreset.id,
+    rules: initialPreset.rules,
     profileRules: options.profileRules ?? [],
   };
   const requestLogs: ProxyLogEntry[] = [];

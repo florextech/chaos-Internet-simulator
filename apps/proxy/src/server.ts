@@ -1,15 +1,19 @@
 import { createProxySystem } from './app.js';
+import { resolveProxyConfig } from './config.js';
 
-const proxyPort = Number(process.env.PROXY_PORT ?? 8080);
-const controlPort = Number(process.env.CONTROL_PORT ?? 8081);
-const targetBaseUrl = process.env.TARGET_BASE_URL ?? 'https://jsonplaceholder.typicode.com';
+const resolvedConfig = resolveProxyConfig();
 
-const { proxyServer, controlServer } = createProxySystem({ targetBaseUrl });
+const { proxyServer, controlServer } = createProxySystem({
+  targetBaseUrl: resolvedConfig.targetBaseUrl,
+  initialEnabled: resolvedConfig.enabled,
+  initialProfileId: resolvedConfig.activeProfile,
+  profileRules: resolvedConfig.rules,
+});
 
 const start = async (): Promise<void> => {
   await Promise.all([
-    proxyServer.listen({ host: '0.0.0.0', port: proxyPort }),
-    controlServer.listen({ host: '0.0.0.0', port: controlPort }),
+    proxyServer.listen({ host: '0.0.0.0', port: resolvedConfig.proxyPort }),
+    controlServer.listen({ host: '0.0.0.0', port: resolvedConfig.controlApiPort }),
   ]);
 };
 
