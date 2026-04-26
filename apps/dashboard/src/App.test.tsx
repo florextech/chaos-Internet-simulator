@@ -88,6 +88,23 @@ const createFetchMock = () => {
     if (url.endsWith('/logs')) {
       return new Response(JSON.stringify(logs), { status: 200 });
     }
+    if (url.endsWith('/metrics')) {
+      return new Response(
+        JSON.stringify({
+          totalRequests: logs.length,
+          delayedRequests: 0,
+          erroredRequests: 0,
+          timedOutRequests: 0,
+          throttledRequests: 0,
+          droppedConnections: 0,
+          averageResponseTimeMs: 100,
+          activeProfile: state.profileId,
+          activeScenario: state.scenario?.name ?? null,
+          chaosEnabled: state.enabled,
+        }),
+        { status: 200 },
+      );
+    }
     if (url.endsWith('/state/enabled') && init?.method === 'POST') {
       const body = JSON.parse(String(init.body)) as { enabled: boolean };
       state = { ...state, enabled: body.enabled };
@@ -156,6 +173,7 @@ describe('dashboard app', () => {
     expect(screen.getByText('2500 ms')).toBeInTheDocument();
     expect(screen.getByText('Recent Requests')).toBeInTheDocument();
     expect(screen.getByText('/posts/1')).toBeInTheDocument();
+    expect(screen.getByText('Total requests')).toBeInTheDocument();
   });
 
   it('toggles chaos status', async () => {
@@ -257,6 +275,23 @@ describe('dashboard app', () => {
               timestamp: new Date().toISOString(),
             },
           ]),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith('/metrics')) {
+        return new Response(
+          JSON.stringify({
+            totalRequests: 1,
+            delayedRequests: 1,
+            erroredRequests: 0,
+            timedOutRequests: 0,
+            throttledRequests: 1,
+            droppedConnections: 0,
+            averageResponseTimeMs: 1500,
+            activeProfile: 'slow-3g',
+            activeScenario: null,
+            chaosEnabled: true,
+          }),
           { status: 200 },
         );
       }
@@ -396,6 +431,23 @@ describe('dashboard app', () => {
       }
       if (url.endsWith('/logs')) {
         return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (url.endsWith('/metrics')) {
+        return new Response(
+          JSON.stringify({
+            totalRequests: 0,
+            delayedRequests: 0,
+            erroredRequests: 0,
+            timedOutRequests: 0,
+            throttledRequests: 0,
+            droppedConnections: 0,
+            averageResponseTimeMs: 0,
+            activeProfile: 'slow-3g',
+            activeScenario: 'bad-mobile-network',
+            chaosEnabled: true,
+          }),
+          { status: 200 },
+        );
       }
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });

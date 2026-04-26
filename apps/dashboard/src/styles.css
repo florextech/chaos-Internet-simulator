@@ -249,6 +249,28 @@ h2 {
   padding: 16px;
 }
 
+.metrics-panel {
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgb(23 28 25 / 0.72);
+  padding: 10px;
+}
+
+.metric-card p {
+  margin: 0;
+}
+
 .config-panel {
   padding: 16px;
   margin-bottom: 14px;
@@ -395,6 +417,10 @@ tbody tr:hover td {
   .custom-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -422,6 +448,10 @@ tbody tr:hover td {
   }
 
   .custom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-grid {
     grid-template-columns: 1fr;
   }
 }

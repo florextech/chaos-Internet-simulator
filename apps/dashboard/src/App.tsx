@@ -60,10 +60,24 @@ type ProfileOption = {
   };
 };
 
+type ProxyMetrics = {
+  totalRequests: number;
+  delayedRequests: number;
+  erroredRequests: number;
+  timedOutRequests: number;
+  throttledRequests: number;
+  droppedConnections: number;
+  averageResponseTimeMs: number;
+  activeProfile: string;
+  activeScenario: string | null;
+  chaosEnabled: boolean;
+};
+
 export const App = () => {
   const [healthy, setHealthy] = useState<boolean>(false);
   const [state, setState] = useState<ChaosState | null>(null);
   const [logs, setLogs] = useState<RequestLog[]>([]);
+  const [metrics, setMetrics] = useState<ProxyMetrics | null>(null);
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [targetBaseUrlDraft, setTargetBaseUrlDraft] = useState('');
   const [rulesDraft, setRulesDraft] = useState<Array<{ match: string; profile: string }>>([]);
@@ -96,12 +110,18 @@ export const App = () => {
     setLogs(data.slice(0, 30));
   };
 
+  const loadMetrics = async () => {
+    const response = await fetch(`${CONTROL_API}/metrics`);
+    const data = (await response.json()) as ProxyMetrics;
+    setMetrics(data);
+  };
+
   useEffect(() => {
     const bootstrap = async () => {
       try {
         await fetch(`${CONTROL_API}/health`).then((res) => res.json());
         setHealthy(true);
-        await Promise.all([loadState(), loadLogs(), loadProfiles()]);
+        await Promise.all([loadState(), loadLogs(), loadProfiles(), loadMetrics()]);
       } catch {
         setHealthy(false);
       }
@@ -109,7 +129,7 @@ export const App = () => {
     bootstrap();
 
     const timer = setInterval(() => {
-      loadLogs().catch(() => undefined);
+      Promise.all([loadLogs(), loadMetrics()]).catch(() => undefined);
     }, 3000);
 
     return () => clearInterval(timer);
@@ -124,7 +144,7 @@ export const App = () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ enabled: !state.enabled }),
       });
-      await Promise.all([loadState(), loadLogs(), loadProfiles()]);
+      await Promise.all([loadState(), loadLogs(), loadProfiles(), loadMetrics()]);
     } finally {
       setLoading(false);
     }
@@ -138,7 +158,7 @@ export const App = () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ profileId }),
       });
-      await Promise.all([loadState(), loadLogs(), loadProfiles()]);
+      await Promise.all([loadState(), loadLogs(), loadProfiles(), loadMetrics()]);
     } finally {
       setLoading(false);
     }
@@ -241,6 +261,52 @@ export const App = () => {
             Control API: {healthy ? 'connected' : 'disconnected'}
           </span>
         </header>
+
+        {metrics && (
+          <div className="panel metrics-panel">
+            <div className="logs-head">
+              <h2>Metrics</h2>
+            </div>
+            <div className="metrics-grid">
+              <div className="metric-card">
+                <p className="rule-label">Total requests</p>
+                <p>{metrics.totalRequests}</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Avg response</p>
+                <p>{metrics.averageResponseTimeMs} ms</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Errors</p>
+                <p>{metrics.erroredRequests}</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Timeouts</p>
+                <p>{metrics.timedOutRequests}</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Throttled</p>
+                <p>{metrics.throttledRequests}</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Dropped tunnels</p>
+                <p>{metrics.droppedConnections}</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Chaos enabled</p>
+                <p>{metrics.chaosEnabled ? 'yes' : 'no'}</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Active profile</p>
+                <p>{metrics.activeProfile}</p>
+              </div>
+              <div className="metric-card">
+                <p className="rule-label">Active scenario</p>
+                <p>{metrics.activeScenario ?? 'none'}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {state && (
           <div className="panel panel-top">
