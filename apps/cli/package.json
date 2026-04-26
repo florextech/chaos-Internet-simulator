@@ -1,0 +1,15 @@
+{
+  "name": "@chaos-internet-simulator/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "chaos-net": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --check \"src/**/*.ts\""
+  }
+}
