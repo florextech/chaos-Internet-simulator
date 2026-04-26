@@ -35,6 +35,7 @@ const createFetchMock = () => {
       errorApplied: false,
       timeoutApplied: false,
       statusCode: 200,
+      appliedRule: null,
       timestamp: new Date().toISOString(),
     },
   ];
