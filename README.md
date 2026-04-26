@@ -202,21 +202,36 @@ Priority for overlapping values:
   - errorRatePercent: 2
   - timeoutRatePercent: 1
   - timeoutMs: 10000
+  - downloadKbps: 50
 - `airport-wifi`
   - delayMs: 4000
   - errorRatePercent: 8
   - timeoutRatePercent: 5
   - timeoutMs: 12000
+  - downloadKbps: 120
 - `unstable-api`
   - delayMs: 1200
   - errorRatePercent: 25
   - timeoutRatePercent: 10
   - timeoutMs: 8000
+  - downloadKbps: 200
 - `total-chaos`
   - delayMs: 5000
   - errorRatePercent: 40
   - timeoutRatePercent: 25
   - timeoutMs: 15000
+  - downloadKbps: 40
+
+## Bandwidth throttling
+
+Profiles support `downloadKbps`.
+
+When enabled, proxied HTTP responses are streamed slower to simulate low download bandwidth.
+
+Current limitation:
+
+- Throttling is applied to normal proxied HTTP responses.
+- `CONNECT` HTTPS tunnels are not throttled at byte-stream level in this MVP; only delay/error/timeout rules apply there.
 
 ## Scripts
 
