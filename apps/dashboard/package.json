@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "tsc -b && vite build",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --coverage",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
