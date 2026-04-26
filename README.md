@@ -17,6 +17,16 @@ This project helps you reproduce:
 - airport-like WiFi behavior
 - slow mobile-like connectivity
 
+## Detailed docs
+
+For detailed guides, see:
+
+- `docs/README.md`
+- `docs/proxy.md`
+- `docs/dashboard.md`
+- `docs/cli.md`
+- `docs/configuration.md`
+
 ## Monorepo structure
 
 ```text
