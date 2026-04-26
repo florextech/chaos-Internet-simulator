@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "activeProfile": "slow-3g",
+  "targetBaseUrl": "https://jsonplaceholder.typicode.com",
+  "proxyPort": 8080,
+  "controlApiPort": 8081,
+  "rules": [
+    {
+      "match": "/posts",
+      "profile": "slow-3g"
+    }
+  ],
+  "customProfiles": {
+    "my-bad-network": {
+      "delayMs": 3500,
+      "errorRatePercent": 10,
+      "timeoutRatePercent": 5,
+      "timeoutMs": 12000
+    }
+  }
+}

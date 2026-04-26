@@ -150,6 +150,51 @@ Matching mode is simple string matching (no regex): domain, path, or substring i
 - `VITE_CONTROL_API_URL` (default: `http://localhost:8081`)
 - `CHAOS_CONTROL_API_URL` (default: `http://localhost:8081`)
 
+## chaos.config.json
+
+Proxy startup supports `chaos.config.json` loaded from current directory or nearest parent directory.
+
+See full example at:
+
+- `examples/chaos.config.example.json`
+
+Supported fields:
+
+- `enabled`
+- `activeProfile`
+- `targetBaseUrl`
+- `proxyPort`
+- `controlApiPort`
+- `rules`
+- `customProfiles`
+
+Example:
+
+```json
+{
+  "enabled": true,
+  "activeProfile": "slow-3g",
+  "targetBaseUrl": "https://jsonplaceholder.typicode.com",
+  "proxyPort": 8080,
+  "controlApiPort": 8081,
+  "rules": [{ "match": "/posts", "profile": "slow-3g" }],
+  "customProfiles": {
+    "my-bad-network": {
+      "delayMs": 3500,
+      "errorRatePercent": 10,
+      "timeoutRatePercent": 5,
+      "timeoutMs": 12000
+    }
+  }
+}
+```
+
+Priority for overlapping values:
+
+1. Environment variables
+2. `chaos.config.json`
+3. Internal defaults
+
 ## Available presets
 
 - `slow-3g`
