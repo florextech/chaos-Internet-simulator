@@ -1,9 +1,11 @@
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 
 import { decideChaos } from '@chaos-internet-simulator/core';
-import { PRESETS } from '@chaos-internet-simulator/presets';
+import { getPresetById, PRESETS } from '@chaos-internet-simulator/presets';
 
 const PROXY_PORT = Number(process.env.PROXY_PORT ?? 8080);
+const CONTROL_PORT = Number(process.env.CONTROL_PORT ?? 8081);
 const TARGET_BASE_URL = process.env.TARGET_BASE_URL ?? 'https://jsonplaceholder.typicode.com';
 
 const activePreset = PRESETS[0];
@@ -26,6 +28,7 @@ const resolveTargetUrl = (incomingUrl: string): string => {
 };
 
 const proxyServer = Fastify({ logger: true });
+const controlServer = Fastify({ logger: true });
 
 proxyServer.get('/health', async () => ({ status: 'ok', service: 'proxy' }));
 
@@ -71,8 +74,41 @@ proxyServer.all('/*', async (request, reply) => {
   return reply.send(Buffer.from(body));
 });
 
+controlServer.register(cors, { origin: true });
+
+controlServer.get('/health', async () => ({ status: 'ok', service: 'control' }));
+
+controlServer.get('/state', async () => chaosState);
+
+controlServer.post<{ Body: { enabled?: boolean } }>('/state/enabled', async (request, reply) => {
+  if (typeof request.body?.enabled !== 'boolean') {
+    return reply.code(400).send({ error: 'enabled must be boolean' });
+  }
+  chaosState.enabled = request.body.enabled;
+  return { ok: true, state: chaosState };
+});
+
+controlServer.post<{ Body: { profileId?: string } }>('/state/profile', async (request, reply) => {
+  const profileId = request.body?.profileId;
+  if (!profileId) {
+    return reply.code(400).send({ error: 'profileId is required' });
+  }
+
+  const preset = getPresetById(profileId);
+  if (!preset) {
+    return reply.code(404).send({ error: `profile not found: ${profileId}` });
+  }
+
+  chaosState.profileId = preset.id;
+  chaosState.rules = preset.rules;
+  return { ok: true, state: chaosState };
+});
+
 const start = async (): Promise<void> => {
-  await proxyServer.listen({ host: '0.0.0.0', port: PROXY_PORT });
+  await Promise.all([
+    proxyServer.listen({ host: '0.0.0.0', port: PROXY_PORT }),
+    controlServer.listen({ host: '0.0.0.0', port: CONTROL_PORT }),
+  ]);
 };
 
 start().catch((error) => {
