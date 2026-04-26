@@ -46,10 +46,17 @@ pnpm --filter @chaos-internet-simulator/proxy dev
 - Viable chaos for `CONNECT`:
   - connection delay
   - simulated timeout
-  - simulated connection error (drop/refuse)
+  - simulated connection drop before tunnel is established
 - Not available without MITM:
   - per-path rewrite inside HTTPS payload
   - response body throttling at HTTP semantic level
+
+## HTTPS limitations
+
+- HTTPS payload is opaque (encrypted end-to-end).
+- Rule matching can only use connect target (`host:port`), not decrypted path.
+- Response body modifications are not possible in CONNECT mode.
+- If you need per-route HTTPS manipulation, MITM support is required and currently out of scope.
 
 ## Control API Endpoints
 

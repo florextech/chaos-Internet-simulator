@@ -153,6 +153,12 @@ The dashboard can now configure:
 - per-route rules (domain/path/URL contains)
 - custom profiles (create/update) without restarting proxy
 
+## HTTPS support (basic)
+
+- CONNECT tunneling is supported for HTTPS traffic.
+- Chaos can apply delay, timeout, and connection drop before tunnel establishment.
+- MITM is not implemented, so encrypted HTTPS payload cannot be inspected or rewritten.
+
 ### Per-route chaos rules
 
 You can define profile rules that match a request URL. If a rule matches, that profile is used; if not,
