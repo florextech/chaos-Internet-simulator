@@ -11,6 +11,13 @@ type ChaosState = {
     timeoutRatePercent: number;
     timeoutMs: number;
   };
+  scenario: {
+    name: string;
+    loop: boolean;
+    stepIndex: number;
+    currentProfile: string;
+    stepEndsAt: string;
+  } | null;
 };
 
 type RequestLog = {
@@ -122,6 +129,9 @@ export const App = () => {
                 <p className={state.enabled ? 'state-on' : 'state-off'}>
                   {state.enabled ? 'Enabled' : 'Disabled'}
                 </p>
+                {state.scenario && (
+                  <p className="label">Scenario: {state.scenario.name}</p>
+                )}
               </div>
               <button className="btn btn-primary" onClick={handleToggle} disabled={loading}>
                 {state.enabled ? 'Disable chaos' : 'Enable chaos'}

@@ -12,6 +12,13 @@ type MockState = {
     timeoutRatePercent: number;
     timeoutMs: number;
   };
+  scenario: {
+    name: string;
+    loop: boolean;
+    stepIndex: number;
+    currentProfile: string;
+    stepEndsAt: string;
+  } | null;
 };
 
 const createFetchMock = () => {
@@ -24,6 +31,7 @@ const createFetchMock = () => {
       timeoutRatePercent: 1,
       timeoutMs: 10000,
     },
+    scenario: null,
   };
   const logs = [
     {
@@ -175,6 +183,7 @@ describe('dashboard app', () => {
             enabled: true,
             profileId: 'slow-3g',
             rules: { delayMs: 2500, errorRatePercent: 2, timeoutRatePercent: 1, timeoutMs: 10000 },
+            scenario: null,
           }),
           { status: 200 },
         );
