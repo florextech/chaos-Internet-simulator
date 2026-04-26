@@ -100,43 +100,73 @@ export const App = () => {
 
   return (
     <main className="layout">
-      <section className="panel">
-        <h1>Chaos Internet Simulator</h1>
-        <p className={healthy ? 'ok' : 'error'}>
-          Control API: {healthy ? 'connected' : 'disconnected'}
-        </p>
+      <section className="shell">
+        <header className="header">
+          <div>
+            <p className="eyebrow">Florex Labs</p>
+            <h1>Chaos Internet Simulator</h1>
+          </div>
+          <span className={healthy ? 'pill pill-ok' : 'pill pill-error'}>
+            Control API: {healthy ? 'connected' : 'disconnected'}
+          </span>
+        </header>
+
         {state && (
-          <div className="controls">
-            <div className="row">
-              <span>Chaos status</span>
-              <button onClick={handleToggle} disabled={loading}>
-                {state.enabled ? 'Disable' : 'Enable'}
+          <div className="panel panel-top">
+            <div className="row row-top">
+              <div className="status-block">
+                <p className="label">Chaos status</p>
+                <p className={state.enabled ? 'state-on' : 'state-off'}>
+                  {state.enabled ? 'Enabled' : 'Disabled'}
+                </p>
+              </div>
+              <button className="btn btn-primary" onClick={handleToggle} disabled={loading}>
+                {state.enabled ? 'Disable chaos' : 'Enable chaos'}
               </button>
             </div>
             <div className="row">
-              <span>Profile</span>
-              <select
-                value={state.profileId}
-                onChange={(event) => handleProfileChange(event.target.value)}
-                disabled={loading}
-              >
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.label}
-                  </option>
-                ))}
-              </select>
+              <p className="label">Profile</p>
+              <div className="profile-select-wrap">
+                <select
+                  className="profile-select"
+                  value={state.profileId}
+                  onChange={(event) => handleProfileChange(event.target.value)}
+                  disabled={loading}
+                >
+                  {profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="rule-grid">
-              <span>Delay: {state.rules.delayMs} ms</span>
-              <span>Error rate: {state.rules.errorRatePercent}%</span>
-              <span>Timeout rate: {state.rules.timeoutRatePercent}%</span>
-              <span>Timeout: {state.rules.timeoutMs} ms</span>
+              <div className="rule-item">
+                <p className="rule-label">Delay</p>
+                <p>{state.rules.delayMs} ms</p>
+              </div>
+              <div className="rule-item">
+                <p className="rule-label">Error rate</p>
+                <p>{state.rules.errorRatePercent}%</p>
+              </div>
+              <div className="rule-item">
+                <p className="rule-label">Timeout rate</p>
+                <p>{state.rules.timeoutRatePercent}%</p>
+              </div>
+              <div className="rule-item">
+                <p className="rule-label">Timeout</p>
+                <p>{state.rules.timeoutMs} ms</p>
+              </div>
             </div>
           </div>
         )}
-        <div className="logs">
-          <h2>Recent Requests</h2>
+
+        <div className="panel logs">
+          <div className="logs-head">
+            <h2>Recent Requests</h2>
+            <span className="pill">{logs.length} rows</span>
+          </div>
           <div className="table-wrap">
             <table>
               <thead>
@@ -155,20 +185,26 @@ export const App = () => {
               <tbody>
                 {logs.length === 0 && (
                   <tr>
-                    <td colSpan={9}>No requests yet.</td>
+                    <td className="empty-cell" colSpan={9}>
+                      No requests yet.
+                    </td>
                   </tr>
                 )}
                 {logs.map((log) => (
                   <tr key={`${log.timestamp}-${log.method}-${log.url}`}>
                     <td>{new Date(log.timestamp).toLocaleTimeString()}</td>
                     <td>{log.method}</td>
-                    <td>{log.url}</td>
+                    <td className="url-cell">{log.url}</td>
                     <td>{log.profile}</td>
                     <td>{log.chaosEnabled ? 'on' : 'off'}</td>
                     <td>{log.delayApplied ? 'yes' : 'no'}</td>
                     <td>{log.errorApplied ? 'yes' : 'no'}</td>
                     <td>{log.timeoutApplied ? 'yes' : 'no'}</td>
-                    <td>{log.statusCode}</td>
+                    <td>
+                      <span className={log.statusCode >= 400 ? 'status bad' : 'status good'}>
+                        {log.statusCode}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
