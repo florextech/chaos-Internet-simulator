@@ -1,0 +1,92 @@
+{
+  "info": {
+    "name": "Chaos Internet Simulator",
+    "_postman_id": "2e5308df-94ce-47dc-bf10-2bc49de8d0ad",
+    "description": "Control API and proxy examples for Chaos Internet Simulator",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{controlApiUrl}}/health"
+      }
+    },
+    {
+      "name": "Get State",
+      "request": {
+        "method": "GET",
+        "url": "{{controlApiUrl}}/state"
+      }
+    },
+    {
+      "name": "Enable Chaos",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "content-type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"enabled\": true\n}"
+        },
+        "url": "{{controlApiUrl}}/state/enabled"
+      }
+    },
+    {
+      "name": "Set Profile",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "content-type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"profileId\": \"unstable-api\"\n}"
+        },
+        "url": "{{controlApiUrl}}/state/profile"
+      }
+    },
+    {
+      "name": "Set URL Rules",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "content-type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rules\": [\n    {\n      \"match\": \"/posts\",\n      \"profile\": \"slow-3g\"\n    }\n  ]\n}"
+        },
+        "url": "{{controlApiUrl}}/state/rules"
+      }
+    },
+    {
+      "name": "Metrics",
+      "request": {
+        "method": "GET",
+        "url": "{{controlApiUrl}}/metrics"
+      }
+    },
+    {
+      "name": "Logs",
+      "request": {
+        "method": "GET",
+        "url": "{{controlApiUrl}}/logs"
+      }
+    },
+    {
+      "name": "Proxy Request",
+      "request": {
+        "method": "GET",
+        "url": "{{targetUrl}}/posts/1",
+        "description": "In Postman, configure proxy host=localhost port=8080 before sending this request."
+      }
+    }
+  ],
+  "variable": [
+    { "key": "controlApiUrl", "value": "http://localhost:8081" },
+    { "key": "targetUrl", "value": "https://jsonplaceholder.typicode.com" }
+  ]
+}
