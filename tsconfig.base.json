@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
@@ -11,10 +10,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": true,
-    "sourceMap": true,
-    "paths": {
-      "@chaos-internet-simulator/core": ["packages/core/src/index.ts"],
-      "@chaos-internet-simulator/presets": ["packages/presets/src/index.ts"]
-    }
+    "sourceMap": true
   }
 }
