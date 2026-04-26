@@ -44,6 +44,7 @@ type ChaosState = {
   enabled: boolean;
   profileId: string;
   rules: ChaosRules;
+  targetBaseUrl: string;
   profileRules: ChaosProfileRule[];
   customProfiles: Record<string, ChaosRules>;
   scenario: {
@@ -107,7 +108,7 @@ export const resolveTargetUrl = (incomingUrl: string, targetBaseUrl: string): st
 };
 
 export const createProxySystem = (options: ProxySystemOptions = {}) => {
-  const targetBaseUrl = options.targetBaseUrl ?? 'https://jsonplaceholder.typicode.com';
+  let targetBaseUrl = options.targetBaseUrl ?? 'https://jsonplaceholder.typicode.com';
   const fetchImpl = options.fetchImpl ?? fetch;
   const randomProvider = options.randomProvider ?? Math.random;
   const customProfiles = options.customProfiles ?? {};
@@ -125,6 +126,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     enabled: options.initialEnabled ?? false,
     profileId: effectiveInitialProfileId,
     rules: initialRules,
+    targetBaseUrl,
     profileRules: options.profileRules ?? [],
     customProfiles,
     scenario: null,
@@ -157,6 +159,35 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
     chaosState.profileId = profileId;
     chaosState.rules = selectedRules;
     return true;
+  };
+
+  const getAvailableProfiles = (): Array<{ id: string; source: 'preset' | 'custom'; rules: ChaosRules }> => [
+    ...PRESETS.map((preset) => ({ id: preset.id, source: 'preset' as const, rules: preset.rules })),
+    ...Object.entries(chaosState.customProfiles).map(([id, rules]) => ({
+      id,
+      source: 'custom' as const,
+      rules,
+    })),
+  ];
+
+  const isValidChaosRules = (rules: ChaosRules): boolean => {
+    const hasValidNumber = (value: unknown): value is number =>
+      typeof value === 'number' && Number.isFinite(value);
+
+    return (
+      hasValidNumber(rules.delayMs) &&
+      rules.delayMs >= 0 &&
+      hasValidNumber(rules.errorRatePercent) &&
+      rules.errorRatePercent >= 0 &&
+      rules.errorRatePercent <= 100 &&
+      hasValidNumber(rules.timeoutRatePercent) &&
+      rules.timeoutRatePercent >= 0 &&
+      rules.timeoutRatePercent <= 100 &&
+      hasValidNumber(rules.timeoutMs) &&
+      rules.timeoutMs >= 0 &&
+      (rules.downloadKbps === undefined ||
+        (hasValidNumber(rules.downloadKbps) && rules.downloadKbps > 0))
+    );
   };
 
   const startScenarioRuntime = (scenarioName: string): boolean => {
@@ -400,6 +431,7 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
 
   controlServer.get('/health', async () => ({ status: 'ok', service: 'control' }));
   controlServer.get('/state', async () => chaosState);
+  controlServer.get('/profiles', async () => ({ profiles: getAvailableProfiles() }));
 
   controlServer.post<{ Body: { enabled?: boolean } }>('/state/enabled', async (request, reply) => {
     if (typeof request.body?.enabled !== 'boolean') {
@@ -443,9 +475,63 @@ export const createProxySystem = (options: ProxySystemOptions = {}) => {
       return reply.code(400).send({ error: 'each rule must contain non-empty match and profile' });
     }
 
+    const hasUnknownProfile = request.body.rules.some((rule) => !resolveProfileRules(rule.profile));
+    if (hasUnknownProfile) {
+      return reply.code(400).send({ error: 'each rule profile must exist in preset or custom profiles' });
+    }
+
     chaosState.profileRules = request.body.rules;
     return { ok: true, state: chaosState };
   });
+
+  controlServer.post<{ Body: { targetBaseUrl?: string } }>(
+    '/state/target-base-url',
+    async (request, reply) => {
+      const nextTargetBaseUrl = request.body?.targetBaseUrl;
+      if (!nextTargetBaseUrl || typeof nextTargetBaseUrl !== 'string') {
+        return reply.code(400).send({ error: 'targetBaseUrl is required' });
+      }
+
+      try {
+        const parsed = new URL(nextTargetBaseUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return reply.code(400).send({ error: 'targetBaseUrl must start with http:// or https://' });
+        }
+      } catch {
+        return reply.code(400).send({ error: 'targetBaseUrl must be a valid URL' });
+      }
+
+      targetBaseUrl = nextTargetBaseUrl;
+      chaosState.targetBaseUrl = targetBaseUrl;
+      return { ok: true, state: chaosState };
+    },
+  );
+
+  controlServer.post<{ Body: { profileId?: string; rules?: ChaosRules } }>(
+    '/profiles/custom',
+    async (request, reply) => {
+      const profileId = request.body?.profileId?.trim();
+      const rules = request.body?.rules;
+
+      if (!profileId) {
+        return reply.code(400).send({ error: 'profileId is required' });
+      }
+      if (!rules || !isValidChaosRules(rules)) {
+        return reply.code(400).send({ error: 'rules are invalid' });
+      }
+
+      chaosState.customProfiles[profileId] = rules;
+      if (chaosState.profileId === profileId) {
+        chaosState.rules = rules;
+      }
+
+      return {
+        ok: true,
+        profile: { id: profileId, source: 'custom', rules },
+        state: chaosState,
+      };
+    },
+  );
 
   controlServer.get('/logs', async () => requestLogs);
   controlServer.get('/scenario', async () => ({ activeScenario: chaosState.scenario }));

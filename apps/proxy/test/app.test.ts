@@ -355,6 +355,84 @@ describe('proxy app', () => {
     expect(app.chaosState.profileRules).toEqual([{ match: '/posts', profile: 'slow-3g' }]);
   });
 
+  it('updates target base url through control endpoint', async () => {
+    fetchMock.mockResolvedValue(new Response('ok', { status: 200 }));
+
+    const bad = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/target-base-url',
+      payload: { targetBaseUrl: 'notaurl' },
+    });
+    const good = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/target-base-url',
+      payload: { targetBaseUrl: 'https://example.com/api' },
+    });
+    const response = await app.proxyServer.inject({ method: 'GET', url: '/posts/1' });
+
+    expect(bad.statusCode).toBe(400);
+    expect(good.statusCode).toBe(200);
+    expect(app.chaosState.targetBaseUrl).toBe('https://example.com/api');
+    expect(response.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.com/posts/1',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('creates custom profiles and exposes dynamic profile list', async () => {
+    const initialProfiles = await app.controlServer.inject({
+      method: 'GET',
+      url: '/profiles',
+    });
+    const badCustom = await app.controlServer.inject({
+      method: 'POST',
+      url: '/profiles/custom',
+      payload: { profileId: 'my-web-profile', rules: { delayMs: -1 } },
+    });
+    const custom = await app.controlServer.inject({
+      method: 'POST',
+      url: '/profiles/custom',
+      payload: {
+        profileId: 'my-web-profile',
+        rules: {
+          delayMs: 1234,
+          errorRatePercent: 15,
+          timeoutRatePercent: 5,
+          timeoutMs: 9000,
+          downloadKbps: 120,
+        },
+      },
+    });
+
+    const profile = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/profile',
+      payload: { profileId: 'my-web-profile' },
+    });
+    const rules = await app.controlServer.inject({
+      method: 'POST',
+      url: '/state/rules',
+      payload: { rules: [{ match: '/payments', profile: 'my-web-profile' }] },
+    });
+    const updatedProfiles = await app.controlServer.inject({
+      method: 'GET',
+      url: '/profiles',
+    });
+
+    expect(initialProfiles.statusCode).toBe(200);
+    expect(badCustom.statusCode).toBe(400);
+    expect(custom.statusCode).toBe(200);
+    expect(profile.statusCode).toBe(200);
+    expect(rules.statusCode).toBe(200);
+    expect(updatedProfiles.json().profiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'slow-3g', source: 'preset' }),
+        expect.objectContaining({ id: 'my-web-profile', source: 'custom' }),
+      ]),
+    );
+  });
+
   it('runs scenario steps and stops at the end for non-loop scenarios', async () => {
     vi.useFakeTimers();
 
