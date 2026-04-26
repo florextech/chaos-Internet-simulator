@@ -336,6 +336,36 @@ Priority for overlapping values:
   - timeoutRatePercent: 25
   - timeoutMs: 15000
   - downloadKbps: 40
+- `starbucks-wifi`
+  - delayMs: 1800
+  - errorRatePercent: 6
+  - timeoutRatePercent: 4
+  - timeoutMs: 9000
+  - downloadKbps: 250
+- `colombia-4g`
+  - delayMs: 900
+  - errorRatePercent: 4
+  - timeoutRatePercent: 3
+  - timeoutMs: 8000
+  - downloadKbps: 700
+- `office-vpn`
+  - delayMs: 1400
+  - errorRatePercent: 3
+  - timeoutRatePercent: 2
+  - timeoutMs: 10000
+  - downloadKbps: 500
+- `international-latency`
+  - delayMs: 2200
+  - errorRatePercent: 2
+  - timeoutRatePercent: 1
+  - timeoutMs: 12000
+  - downloadKbps: 1000
+- `road-trip-network`
+  - delayMs: 3500
+  - errorRatePercent: 15
+  - timeoutRatePercent: 12
+  - timeoutMs: 15000
+  - downloadKbps: 150
 
 ## Bandwidth throttling
 
