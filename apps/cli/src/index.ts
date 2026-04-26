@@ -37,6 +37,8 @@ const printHelp = (): void => {
   console.log('  status');
   console.log('  profile <profileName>');
   console.log('  logs');
+  console.log('  scenario <scenarioName>');
+  console.log('  scenario off');
 };
 
 const requestJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
@@ -125,6 +127,35 @@ const printLogs = async (): Promise<void> => {
   });
 };
 
+const setScenario = async (value: string | undefined): Promise<void> => {
+  if (!value) {
+    throw new Error('Missing scenario name. Usage: chaos-net scenario <scenarioName>|off');
+  }
+
+  if (value === 'off') {
+    await requestJson('/scenario/off', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    console.log('Scenario disabled.');
+    return;
+  }
+
+  const response = await requestJson<{ ok: boolean; state: { scenario: { name: string } | null } }>(
+    '/scenario',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: value }),
+    },
+  );
+
+  if (!response.ok || !response.state.scenario) {
+    throw new Error(`Failed to activate scenario "${value}".`);
+  }
+  console.log(`Scenario "${response.state.scenario.name}" enabled.`);
+};
+
 const main = async (): Promise<void> => {
   const [command, argument] = process.argv.slice(2);
 
@@ -152,6 +183,10 @@ const main = async (): Promise<void> => {
     }
     if (command === 'logs') {
       await printLogs();
+      return;
+    }
+    if (command === 'scenario') {
+      await setScenario(argument);
       return;
     }
 
