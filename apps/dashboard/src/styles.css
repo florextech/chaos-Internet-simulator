@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "../../../node_modules/@florexlabs/ui/dist/**/*.{js,mjs,cjs}";
+@source "../../../../florex-ui/src/**/*.{ts,tsx}";
 
 * {
   box-sizing: border-box;
