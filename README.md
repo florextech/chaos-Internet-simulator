@@ -109,25 +109,6 @@ pnpm --filter @florexlabs/chaos-net exec chaos-net replay sample.json
 pnpm --filter @florexlabs/chaos-net exec chaos-net replay off
 ```
 
-## Publish CLI (npm)
-
-Package:
-
-- `@florexlabs/chaos-net`
-
-Manual local publish (requires npm auth):
-
-```bash
-pnpm --filter @florexlabs/chaos-net build
-pnpm --filter @florexlabs/chaos-net publish --access public
-```
-
-Automated publish:
-
-- GitHub Action `Publish CLI` (`.github/workflows/publish-cli.yml`)
-- Trigger on release publish or manually with `workflow_dispatch`
-- Requires repository secret `NPM_TOKEN`
-
 ## cURL usage
 
 ```bash
