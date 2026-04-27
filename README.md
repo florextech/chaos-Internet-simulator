@@ -38,6 +38,10 @@ Chaos Internet Simulator helps teams reproduce realistic failure modes early, be
 
 Demo GIF/recording will be added in a future release.
 
+### Dashboard Preview
+
+![Chaos Internet Simulator Dashboard](./assets/dashboard-preview.png)
+
 ## Monorepo structure
 
 ```text
