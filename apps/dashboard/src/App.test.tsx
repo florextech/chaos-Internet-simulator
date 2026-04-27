@@ -335,11 +335,12 @@ describe('dashboard app', () => {
 
     render(<App />);
 
+    const addRuleButton = screen.getByRole('button', { name: '+ Add rule' });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '+ Add rule' })).toBeInTheDocument();
+      expect(addRuleButton).toBeEnabled();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Add rule' }));
+    fireEvent.click(addRuleButton);
     fireEvent.change(screen.getByLabelText('Rule match 1'), {
       target: { value: '/payments' },
     });
@@ -472,10 +473,11 @@ describe('dashboard app', () => {
 
     render(<App />);
 
+    const addRuleButton = screen.getByRole('button', { name: '+ Add rule' });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '+ Add rule' })).toBeInTheDocument();
+      expect(addRuleButton).toBeEnabled();
     });
-    fireEvent.click(screen.getByRole('button', { name: '+ Add rule' }));
+    fireEvent.click(addRuleButton);
     fireEvent.change(screen.getByLabelText('Rule match 1'), {
       target: { value: '/payments' },
     });
