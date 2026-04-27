@@ -314,6 +314,15 @@ Recordings are JSON files under `recordings/`.
 
 ## Roadmap
 
+Already done:
+
+- HTTPS basic support via CONNECT tunneling (without MITM)
+- temporal scenarios support (API, CLI, dashboard visibility)
+- local plugin system with request/response hooks
+- record and replay mode with JSON storage
+
+Still pending:
+
 - optional MITM HTTPS mode
 - richer scenario editor in dashboard
 - plugin marketplace ideas
