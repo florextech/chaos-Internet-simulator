@@ -5,3 +5,5 @@ coverage
 .env
 *.log
 recordings/*.json
+apps/dashboard/playwright-report
+apps/dashboard/test-results
