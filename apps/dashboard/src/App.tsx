@@ -171,6 +171,10 @@ export const App = () => {
     );
   };
 
+  const removeRuleRow = (index: number) => {
+    setRulesDraft((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
+  };
+
   const handleSaveTargetBaseUrl = async () => {
     setLoading(true);
     setMessage(null);
@@ -253,7 +257,7 @@ export const App = () => {
   return (
     <main className="min-h-screen py-6">
       <Section className="py-0">
-        <Container className="max-w-[1080px]">
+        <Container className="max-w-270">
         <header className="header">
           <div>
             <p className="eyebrow">Florex Labs</p>
@@ -334,6 +338,7 @@ export const App = () => {
               <div className="profile-select-wrap">
                 <select
                   className="profile-select"
+                  aria-label="Active chaos profile"
                   value={state.profileId}
                   onChange={(event) => handleProfileChange(event.target.value)}
                   disabled={loading}
@@ -415,6 +420,7 @@ export const App = () => {
                   <div className="profile-select-wrap">
                     <select
                       className="profile-select"
+                      aria-label={`Rule profile ${index + 1}`}
                       value={rule.profile}
                       onChange={(event) => updateRuleRow(index, 'profile', event.target.value)}
                       disabled={loading}
@@ -428,9 +434,7 @@ export const App = () => {
                   </div>
                   <Button
                     variant="ghost"
-                    onClick={() =>
-                      setRulesDraft((current) => current.filter((_, ruleIndex) => ruleIndex !== index))
-                    }
+                    onClick={() => removeRuleRow(index)}
                     disabled={loading}
                   >
                     Remove
