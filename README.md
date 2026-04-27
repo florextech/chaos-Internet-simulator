@@ -36,10 +36,6 @@ Chaos Internet Simulator helps teams reproduce realistic failure modes early, be
 - selective chaos by URL/path/domain
 - scenario-based progressive degradation
 
-## Demo (placeholder)
-
-Demo GIF/recording will be added in a future release.
-
 ### Dashboard Preview
 
 ![Chaos Internet Simulator Dashboard](./assets/dashboard-preview.png)
