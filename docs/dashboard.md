@@ -14,6 +14,17 @@ From repo root:
 pnpm --filter @chaos-internet-simulator/dashboard dev
 ```
 
+## E2E Tests
+
+Dashboard includes Playwright E2E tests with mocked Control API responses.
+
+From repo root:
+
+```bash
+pnpm --filter @chaos-internet-simulator/dashboard exec playwright install chromium
+pnpm --filter @chaos-internet-simulator/dashboard test:e2e
+```
+
 ## Environment Variable
 
 - `VITE_CONTROL_API_URL` (default: `http://localhost:8081`)

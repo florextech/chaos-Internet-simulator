@@ -204,6 +204,7 @@ Dashboard provides:
 - custom profile editor
 - real-time logs
 - metrics overview cards
+- Playwright E2E tests for key flows (render, toggle, config updates)
 
 ## UI Library (`@florexlabs/ui`)
 
