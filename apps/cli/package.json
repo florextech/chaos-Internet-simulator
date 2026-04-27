@@ -1,15 +1,46 @@
 {
   "name": "@chaos-internet-simulator/cli",
   "version": "0.1.0",
-  "private": true,
+  "description": "CLI for Chaos Internet Simulator to control local network chaos profiles and logs",
+  "private": false,
+  "license": "MIT",
+  "author": "Florex Labs",
+  "homepage": "https://github.com/florextech/chaos-Internet-simulator",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/florextech/chaos-Internet-simulator.git",
+    "directory": "apps/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/florextech/chaos-Internet-simulator/issues"
+  },
+  "keywords": [
+    "chaos-testing",
+    "network",
+    "proxy",
+    "cli",
+    "developer-tools",
+    "resilience"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "bin": {
     "chaos-net": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --check \"src/**/*.ts\""
+    "format": "prettier --check \"src/**/*.ts\"",
+    "prepublishOnly": "pnpm build"
   }
 }
