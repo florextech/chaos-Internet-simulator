@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 ![CI](https://img.shields.io/github/actions/workflow/status/florextech/chaos-Internet-simulator/ci.yml?branch=main&label=CI)
-![npm CLI](https://img.shields.io/npm/v/@florextech/chaos-net?label=chaos-net%20cli)
+![npm CLI](https://img.shields.io/npm/v/@florex/chaos-net?label=chaos-net%20cli)
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED)
@@ -97,29 +97,29 @@ docker compose up --build
 ## CLI usage
 
 ```bash
-pnpm --filter @florextech/chaos-net build
-pnpm --filter @florextech/chaos-net exec chaos-net status
-pnpm --filter @florextech/chaos-net exec chaos-net start
-pnpm --filter @florextech/chaos-net exec chaos-net profile unstable-api
-pnpm --filter @florextech/chaos-net exec chaos-net logs
-pnpm --filter @florextech/chaos-net exec chaos-net scenario bad-mobile-network
-pnpm --filter @florextech/chaos-net exec chaos-net record start
-pnpm --filter @florextech/chaos-net exec chaos-net record stop
-pnpm --filter @florextech/chaos-net exec chaos-net replay sample.json
-pnpm --filter @florextech/chaos-net exec chaos-net replay off
+pnpm --filter @florex/chaos-net build
+pnpm --filter @florex/chaos-net exec chaos-net status
+pnpm --filter @florex/chaos-net exec chaos-net start
+pnpm --filter @florex/chaos-net exec chaos-net profile unstable-api
+pnpm --filter @florex/chaos-net exec chaos-net logs
+pnpm --filter @florex/chaos-net exec chaos-net scenario bad-mobile-network
+pnpm --filter @florex/chaos-net exec chaos-net record start
+pnpm --filter @florex/chaos-net exec chaos-net record stop
+pnpm --filter @florex/chaos-net exec chaos-net replay sample.json
+pnpm --filter @florex/chaos-net exec chaos-net replay off
 ```
 
 ## Publish CLI (npm)
 
 Package:
 
-- `@florextech/chaos-net`
+- `@florex/chaos-net`
 
 Manual local publish (requires npm auth):
 
 ```bash
-pnpm --filter @florextech/chaos-net build
-pnpm --filter @florextech/chaos-net publish --access public
+pnpm --filter @florex/chaos-net build
+pnpm --filter @florex/chaos-net publish --access public
 ```
 
 Automated publish:

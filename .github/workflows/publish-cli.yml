@@ -31,9 +31,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm --filter @florextech/chaos-net build
+        run: pnpm --filter @florex/chaos-net build
 
       - name: Publish CLI package
-        run: pnpm --filter @florextech/chaos-net publish --no-git-checks --access public
+        run: pnpm --filter @florex/chaos-net publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

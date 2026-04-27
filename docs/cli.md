@@ -7,7 +7,7 @@ The CLI app lives in `apps/cli` and exposes command `chaos-net`.
 From repo root:
 
 ```bash
-pnpm --filter @florextech/chaos-net build
+pnpm --filter @florex/chaos-net build
 ```
 
 ## Base Usage
@@ -15,7 +15,7 @@ pnpm --filter @florextech/chaos-net build
 From repo root:
 
 ```bash
-pnpm --filter @florextech/chaos-net exec chaos-net <command>
+pnpm --filter @florex/chaos-net exec chaos-net <command>
 ```
 
 ## Environment Variable
@@ -50,17 +50,17 @@ pnpm --filter @florextech/chaos-net exec chaos-net <command>
 ## Examples
 
 ```bash
-pnpm --filter @florextech/chaos-net exec chaos-net status
-pnpm --filter @florextech/chaos-net exec chaos-net start
-pnpm --filter @florextech/chaos-net exec chaos-net profile unstable-api
-pnpm --filter @florextech/chaos-net exec chaos-net logs
-pnpm --filter @florextech/chaos-net exec chaos-net scenario bad-mobile-network
-pnpm --filter @florextech/chaos-net exec chaos-net scenario off
-pnpm --filter @florextech/chaos-net exec chaos-net record start
-pnpm --filter @florextech/chaos-net exec chaos-net record stop
-pnpm --filter @florextech/chaos-net exec chaos-net replay sample.json
-pnpm --filter @florextech/chaos-net exec chaos-net replay off
-pnpm --filter @florextech/chaos-net exec chaos-net off
+pnpm --filter @florex/chaos-net exec chaos-net status
+pnpm --filter @florex/chaos-net exec chaos-net start
+pnpm --filter @florex/chaos-net exec chaos-net profile unstable-api
+pnpm --filter @florex/chaos-net exec chaos-net logs
+pnpm --filter @florex/chaos-net exec chaos-net scenario bad-mobile-network
+pnpm --filter @florex/chaos-net exec chaos-net scenario off
+pnpm --filter @florex/chaos-net exec chaos-net record start
+pnpm --filter @florex/chaos-net exec chaos-net record stop
+pnpm --filter @florex/chaos-net exec chaos-net replay sample.json
+pnpm --filter @florex/chaos-net exec chaos-net replay off
+pnpm --filter @florex/chaos-net exec chaos-net off
 ```
 
 ## Error Handling

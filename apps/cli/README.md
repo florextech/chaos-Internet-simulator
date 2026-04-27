@@ -5,7 +5,7 @@ Command line interface for Chaos Internet Simulator.
 ## Install
 
 ```bash
-npm install -g @florextech/chaos-net
+npm install -g @florex/chaos-net
 ```
 
 ## Usage
