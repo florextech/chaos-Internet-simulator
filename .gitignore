@@ -7,3 +7,4 @@ coverage
 recordings/*.json
 apps/dashboard/playwright-report
 apps/dashboard/test-results
+.vscode/
