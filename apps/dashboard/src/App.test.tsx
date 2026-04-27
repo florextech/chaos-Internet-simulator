@@ -316,7 +316,7 @@ describe('dashboard app', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('https://jsonplaceholder.typicode.com')).toBeInTheDocument();
     });
-    fireEvent.change(screen.getByDisplayValue('https://jsonplaceholder.typicode.com'), {
+    fireEvent.change(screen.getByLabelText('Target base URL input'), {
       target: { value: 'https://api.example.com' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save URL' }));
@@ -340,10 +340,10 @@ describe('dashboard app', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: '+ Add rule' }));
-    fireEvent.change(screen.getByPlaceholderText('/payments or api.example.com'), {
+    fireEvent.change(screen.getByLabelText('Rule match 1'), {
       target: { value: '/payments' },
     });
-    fireEvent.change(screen.getAllByRole('combobox')[1], {
+    fireEvent.change(screen.getByLabelText('Rule profile 1'), {
       target: { value: 'unstable-api' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
@@ -355,10 +355,10 @@ describe('dashboard app', () => {
       );
     });
 
-    fireEvent.change(screen.getByPlaceholderText('profile-name'), {
+    fireEvent.change(screen.getByLabelText('Custom profile name'), {
       target: { value: 'my-web-profile' },
     });
-    fireEvent.change(screen.getByPlaceholderText('downloadKbps (optional)'), {
+    fireEvent.change(screen.getByLabelText('Custom download kbps'), {
       target: { value: '120' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save custom profile' }));
@@ -476,7 +476,7 @@ describe('dashboard app', () => {
       expect(screen.getByRole('button', { name: '+ Add rule' })).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: '+ Add rule' }));
-    fireEvent.change(screen.getByPlaceholderText('/payments or api.example.com'), {
+    fireEvent.change(screen.getByLabelText('Rule match 1'), {
       target: { value: '/payments' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
@@ -499,9 +499,9 @@ describe('dashboard app', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('profile-name')).toBeInTheDocument();
+      expect(screen.getByLabelText('Custom profile name')).toBeInTheDocument();
     });
-    fireEvent.change(screen.getByPlaceholderText('profile-name'), {
+    fireEvent.change(screen.getByLabelText('Custom profile name'), {
       target: { value: 'broken-profile' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save custom profile' }));

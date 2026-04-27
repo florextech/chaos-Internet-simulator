@@ -68,6 +68,7 @@ export const ChaosConfigPanel = ({
             value={targetBaseUrlDraft}
             onChange={(event) => onTargetBaseUrlChange(event.target.value)}
             placeholder="https://jsonplaceholder.typicode.com"
+            aria-label="Target base URL input"
             disabled={loading}
           />
           <Button variant="secondary" onClick={onSaveTargetBaseUrl} disabled={loading}>
@@ -91,6 +92,7 @@ export const ChaosConfigPanel = ({
                 value={rule.match}
                 onChange={(event) => onUpdateRuleRow(index, 'match', event.target.value)}
                 placeholder="/payments or api.example.com"
+                aria-label={`Rule match ${index + 1}`}
                 disabled={loading}
               />
               <div className="profile-select-wrap">
@@ -126,6 +128,7 @@ export const ChaosConfigPanel = ({
             value={customProfileName}
             onChange={(event) => onCustomProfileNameChange(event.target.value)}
             placeholder="profile-name"
+            aria-label="Custom profile name"
             disabled={loading}
           />
           <Input
@@ -134,6 +137,7 @@ export const ChaosConfigPanel = ({
             value={customDelayMs}
             onChange={(event) => onCustomDelayMsChange(event.target.value)}
             placeholder="delayMs"
+            aria-label="Custom delay ms"
             disabled={loading}
           />
           <Input
@@ -143,6 +147,7 @@ export const ChaosConfigPanel = ({
             value={customErrorRate}
             onChange={(event) => onCustomErrorRateChange(event.target.value)}
             placeholder="errorRatePercent"
+            aria-label="Custom error rate percent"
             disabled={loading}
           />
           <Input
@@ -152,6 +157,7 @@ export const ChaosConfigPanel = ({
             value={customTimeoutRate}
             onChange={(event) => onCustomTimeoutRateChange(event.target.value)}
             placeholder="timeoutRatePercent"
+            aria-label="Custom timeout rate percent"
             disabled={loading}
           />
           <Input
@@ -160,6 +166,7 @@ export const ChaosConfigPanel = ({
             value={customTimeoutMs}
             onChange={(event) => onCustomTimeoutMsChange(event.target.value)}
             placeholder="timeoutMs"
+            aria-label="Custom timeout ms"
             disabled={loading}
           />
           <Input
@@ -168,6 +175,7 @@ export const ChaosConfigPanel = ({
             value={customDownloadKbps}
             onChange={(event) => onCustomDownloadKbpsChange(event.target.value)}
             placeholder="downloadKbps (optional)"
+            aria-label="Custom download kbps"
             disabled={loading}
           />
         </div>
