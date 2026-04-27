@@ -1,5 +1,5 @@
 {
-  "name": "@chaos-internet-simulator/cli",
+  "name": "@florextech/chaos-net",
   "version": "0.1.0",
   "description": "CLI for Chaos Internet Simulator to control local network chaos profiles and logs",
   "private": false,

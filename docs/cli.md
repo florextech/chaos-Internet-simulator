@@ -7,7 +7,7 @@ The CLI app lives in `apps/cli` and exposes command `chaos-net`.
 From repo root:
 
 ```bash
-pnpm --filter @chaos-internet-simulator/cli build
+pnpm --filter @florextech/chaos-net build
 ```
 
 ## Base Usage
@@ -15,7 +15,7 @@ pnpm --filter @chaos-internet-simulator/cli build
 From repo root:
 
 ```bash
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net <command>
+pnpm --filter @florextech/chaos-net exec chaos-net <command>
 ```
 
 ## Environment Variable
@@ -50,17 +50,17 @@ pnpm --filter @chaos-internet-simulator/cli exec chaos-net <command>
 ## Examples
 
 ```bash
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net status
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net start
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net profile unstable-api
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net logs
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario bad-mobile-network
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net scenario off
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net record start
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net record stop
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay sample.json
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay off
-pnpm --filter @chaos-internet-simulator/cli exec chaos-net off
+pnpm --filter @florextech/chaos-net exec chaos-net status
+pnpm --filter @florextech/chaos-net exec chaos-net start
+pnpm --filter @florextech/chaos-net exec chaos-net profile unstable-api
+pnpm --filter @florextech/chaos-net exec chaos-net logs
+pnpm --filter @florextech/chaos-net exec chaos-net scenario bad-mobile-network
+pnpm --filter @florextech/chaos-net exec chaos-net scenario off
+pnpm --filter @florextech/chaos-net exec chaos-net record start
+pnpm --filter @florextech/chaos-net exec chaos-net record stop
+pnpm --filter @florextech/chaos-net exec chaos-net replay sample.json
+pnpm --filter @florextech/chaos-net exec chaos-net replay off
+pnpm --filter @florextech/chaos-net exec chaos-net off
 ```
 
 ## Error Handling
