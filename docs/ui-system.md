@@ -2,6 +2,25 @@
 
 This project now uses `@florexlabs/ui` as the primary UI source for the dashboard.
 
+## Use `@florexlabs/ui` Without Cloning
+
+Install from npm in any app:
+
+```bash
+pnpm add @florexlabs/ui
+```
+
+Import CSS and components:
+
+```tsx
+import '@florexlabs/ui/florex.css';
+import { Button, Card, Input } from '@florexlabs/ui';
+```
+
+Package link:
+
+- https://www.npmjs.com/package/@florexlabs/ui
+
 ## What Was Migrated
 
 The following local UI patterns were replaced with reusable components:

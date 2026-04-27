@@ -6,7 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 ![CI](https://img.shields.io/github/actions/workflow/status/florextech/chaos-Internet-simulator/ci.yml?branch=main&label=CI)
-![npm CLI](https://img.shields.io/npm/v/@florexlabs/chaos-net?label=chaos-net%20cli)
+[![npm CLI](https://img.shields.io/npm/v/@florexlabs/chaos-net?label=chaos-net%20cli)](https://www.npmjs.com/package/@florexlabs/chaos-net)
+[![npm UI](https://img.shields.io/npm/v/@florexlabs/ui?label=florexlabs%20ui)](https://www.npmjs.com/package/@florexlabs/ui)
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED)
@@ -90,6 +91,16 @@ Open:
 docker compose up --build
 ```
 
+Prebuilt release images (GHCR):
+
+- `ghcr.io/florextech/chaos-internet-simulator-proxy:latest`
+- `ghcr.io/florextech/chaos-internet-simulator-dashboard:latest`
+
+Publish automation:
+
+- GitHub Action: `.github/workflows/publish-docker.yml`
+- Runs on release publish and `workflow_dispatch`
+
 ## CLI usage
 
 ```bash
@@ -103,6 +114,13 @@ pnpm --filter @florexlabs/chaos-net exec chaos-net record start
 pnpm --filter @florexlabs/chaos-net exec chaos-net record stop
 pnpm --filter @florexlabs/chaos-net exec chaos-net replay sample.json
 pnpm --filter @florexlabs/chaos-net exec chaos-net replay off
+```
+
+Without cloning this repo:
+
+```bash
+npm i -g @florexlabs/chaos-net
+chaos-net status
 ```
 
 ## cURL usage
@@ -211,6 +229,17 @@ Dashboard provides:
 ## UI Library (`@florexlabs/ui`)
 
 Dashboard now uses `@florexlabs/ui` as the reusable UI base.
+
+Use it in any project without cloning:
+
+```bash
+pnpm add @florexlabs/ui
+```
+
+```tsx
+import '@florexlabs/ui/florex.css';
+import { Button, Card, Input } from '@florexlabs/ui';
+```
 
 Migrated components:
 
