@@ -5,6 +5,8 @@
 **Break your network before your users do.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+![CI](https://img.shields.io/github/actions/workflow/status/florextech/chaos-Internet-simulator/ci.yml?branch=main&label=CI)
+![npm CLI](https://img.shields.io/npm/v/@chaos-internet-simulator/cli?label=chaos-net%20cli)
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED)
@@ -106,6 +108,25 @@ pnpm --filter @chaos-internet-simulator/cli exec chaos-net record stop
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay sample.json
 pnpm --filter @chaos-internet-simulator/cli exec chaos-net replay off
 ```
+
+## Publish CLI (npm)
+
+Package:
+
+- `@chaos-internet-simulator/cli`
+
+Manual local publish (requires npm auth):
+
+```bash
+pnpm --filter @chaos-internet-simulator/cli build
+pnpm --filter @chaos-internet-simulator/cli publish --access public
+```
+
+Automated publish:
+
+- GitHub Action `Publish CLI` (`.github/workflows/publish-cli.yml`)
+- Trigger on release publish or manually with `workflow_dispatch`
+- Requires repository secret `NPM_TOKEN`
 
 ## cURL usage
 
